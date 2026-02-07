@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
+import { useFullscreen } from "../../hooks/useFullscreen";
+import FullscreenWarning from "../../components/FullscreenWarning";
 
 const API_BASE = "/api";
 
@@ -35,7 +37,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' },
+    transition: { duration: 0.5, ease: 'easeOut' as const },
   },
 }
 
@@ -48,6 +50,7 @@ export default function RoundPage() {
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showWarning, dismissWarning } = useFullscreen();
 
   const meta = ROUND_META[roundId] || {
     title: `Round ${roundId}`,
@@ -119,6 +122,8 @@ export default function RoundPage() {
 
   return (
     <motion.div className="space-y-8" variants={containerVariants} initial="hidden" animate="visible">
+      <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
+
       {/* Progress indicator */}
       <motion.div className="flex items-center gap-2 text-sm text-gray-400" variants={itemVariants}>
         {[

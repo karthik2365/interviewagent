@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { useFullscreen } from '../hooks/useFullscreen'
+import FullscreenWarning from '../components/FullscreenWarning'
 
 const API_BASE = '/api'
 
@@ -51,7 +53,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' },
+    transition: { duration: 0.5, ease: 'easeOut' as const },
   },
 }
 
@@ -62,6 +64,7 @@ export default function ResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [rejectedAt, setRejectedAt] = useState<string | null>(null);
   const [verdicts, setVerdicts] = useState<Record<string, string>>({});
+  const { showWarning, dismissWarning, exitFullscreen } = useFullscreen();
 
   useEffect(() => {
     // Collect stored verdicts from sessionStorage
@@ -96,8 +99,15 @@ export default function ResultPage() {
     try {
       const res = await fetch(`${API_BASE}/final-decision`);
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Failed to fetch final decision.");
+        let detail = "Failed to fetch final decision.";
+        try {
+          const data = await res.json();
+          detail = data.detail || detail;
+        } catch {}
+        if (res.status === 429) {
+          detail = "AI rate limit reached. Click 'Retry' to try again.";
+        }
+        throw new Error(detail);
       }
       const data = await res.json();
       setResult(data);
@@ -108,14 +118,15 @@ export default function ResultPage() {
     }
   };
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
     sessionStorage.clear();
-    router.push("/");
+    await exitFullscreen();
+    window.location.href = "/";
   };
 
   if (loading) {
     return (
-      <motion.div className="flex flex-col items-center justify-center py-20 space-y-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <motion.div className="flex flex-col items-center justify-center py-20 space-y-4 relative z-20" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <motion.svg className="h-10 w-10 text-orange-400" viewBox="0 0 24 24" fill="none" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -129,18 +140,29 @@ export default function ResultPage() {
 
   if (error) {
     return (
-      <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <motion.div className="space-y-6 relative z-20" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
         <motion.div className="bg-red-500/10 border border-red-500/20 rounded-xl px-5 py-4 text-sm text-red-400" variants={itemVariants}>
           {error}
         </motion.div>
-        <motion.button
-          onClick={handleRestart}
-          className="py-2 px-4 rounded-xl bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white font-medium text-sm"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          Start New Interview
-        </motion.button>
+        <div className="flex gap-3 justify-center">
+          <motion.button
+            onClick={() => fetchFinalDecision()}
+            className="py-2 px-4 rounded-xl bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white font-medium text-sm"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Retry Final Decision
+          </motion.button>
+          <motion.button
+            onClick={handleRestart}
+            className="py-2 px-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-medium text-sm"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Start New Interview
+          </motion.button>
+        </div>
       </motion.div>
     )
   }
@@ -149,7 +171,9 @@ export default function ResultPage() {
   const style = DECISION_STYLES[decision] || DECISION_STYLES.HOLD
 
   return (
-    <motion.div className="space-y-8" variants={containerVariants} initial="hidden" animate="visible">
+    <div className="space-y-8 relative z-20">
+      <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
+
       {/* Progress indicator — all complete */}
       <motion.div className="flex items-center gap-2 text-sm text-gray-400" variants={itemVariants}>
         {[
@@ -251,6 +275,6 @@ export default function ResultPage() {
           Start New Interview
         </motion.button>
       </motion.div>
-    </motion.div>
+    </div>
   )
 }

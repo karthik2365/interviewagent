@@ -47,8 +47,8 @@ def create_technical_agent() -> Agent:
         role="Senior Technical Interviewer",
         goal=(
             "Conduct a technical interview by asking 2-3 targeted technical "
-            "questions based on the candidate's resume and screening results. "
-            "Evaluate the candidate's answers for correctness, depth, and clarity."
+            "questions based on the candidate's resume and screening results. keep the screening results context to yourself; do not let the user know about it. "
+            "Evaluate the candidate's answers for correctness, depth, and clarity "
         ),
         backstory=(
             "You are a principal engineer with deep expertise across backend systems, "

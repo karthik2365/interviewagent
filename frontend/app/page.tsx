@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useFullscreen } from "./hooks/useFullscreen";
+import FullscreenWarning from "./components/FullscreenWarning";
 
 const API_BASE = "/api";
+
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  "SDE 1": "Entry-level software development engineer focused on coding, debugging, and building reliable software.",
+  "AI Engineer": "Engineer specializing in machine learning, deep learning, and AI system design.",
+  "Backend Developer": "Developer focused on server-side logic, APIs, databases, and system architecture.",
+};
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -22,28 +30,50 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: "easeOut" },
+    transition: { duration: 0.5, ease: "easeOut" as const },
   },
 };
 
 export default function HomePage() {
   const router = useRouter();
   const [resume, setResume] = useState("");
+  const [role, setRole] = useState("");
+  const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { enterFullscreen, showWarning, dismissWarning } = useFullscreen();
+
+  // Clear stale session data and fetch roles on mount
+  useEffect(() => {
+    sessionStorage.clear();
+    fetch(`${API_BASE}/roles`)
+      .then((res) => res.json())
+      .then((data) => setRoles(data.roles || []))
+      .catch(() => setRoles(["SDE 1", "AI Engineer", "Backend Developer"]));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resume.trim()) return;
+    if (!resume.trim() || !role) return;
 
     setLoading(true);
     setError(null);
 
+    // Clear previous interview data
+    sessionStorage.clear();
+
+    // Enter fullscreen and mark interview as active
+    sessionStorage.setItem("interview_active", "true");
+    await enterFullscreen();
+
     try {
+      // Reset backend state
+      await fetch(`${API_BASE}/reset`, { method: "POST" });
+
       const res = await fetch(`${API_BASE}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resume: resume.trim() }),
+        body: JSON.stringify({ resume: resume.trim(), role }),
       });
 
       if (!res.ok) {
@@ -62,6 +92,7 @@ export default function HomePage() {
       // Store screening result and next question for round 2
       sessionStorage.setItem("round1_verdict", data.verdict || "");
       sessionStorage.setItem("round1_decision", data.decision || "");
+      sessionStorage.setItem("interview_role", role);
 
       if (data.status === "REJECTED") {
         // Screened out — go to result
@@ -87,6 +118,8 @@ export default function HomePage() {
       initial="hidden"
       animate="visible"
     >
+      <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
+
       {/* Progress indicator */}
       <motion.div
         className="flex items-center gap-2 text-sm text-gray-400"
@@ -212,6 +245,37 @@ export default function HomePage() {
         </motion.p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Role Selector */}
+          <motion.div variants={itemVariants}>
+            <label className="block text-sm font-medium text-white mb-2">
+              Select Role
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {roles.map((r) => (
+                <motion.button
+                  key={r}
+                  type="button"
+                  onClick={() => setRole(r)}
+                  disabled={loading}
+                  className={`p-3 rounded-lg border text-left transition-all ${
+                    role === r
+                      ? "border-orange-500 bg-orange-500/10 ring-1 ring-orange-500"
+                      : "border-white/10 bg-white/5 hover:border-white/20"
+                  }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className={`font-semibold text-sm ${role === r ? "text-orange-400" : "text-white"}`}>
+                    {r}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {ROLE_DESCRIPTIONS[r] || ""}
+                  </p>
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+
           <motion.div variants={itemVariants}>
             <label
               htmlFor="resume"
@@ -242,7 +306,7 @@ export default function HomePage() {
 
           <motion.button
             type="submit"
-            disabled={loading || !resume.trim()}
+            disabled={loading || !resume.trim() || !role}
             className="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 disabled:from-gray-700 disabled:to-gray-800 text-white font-medium text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
@@ -270,7 +334,7 @@ export default function HomePage() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </motion.svg>
-                Running Screening Agent...
+                Running Screening Agent for {role}...
               </>
             ) : (
               "Submit Resume & Begin Interview"
