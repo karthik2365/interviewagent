@@ -59,17 +59,14 @@ export default function HomePage() {
 
       const data = await res.json();
 
-      // Store screening result and next question for round 2
       sessionStorage.setItem("round1_verdict", data.verdict || "");
       sessionStorage.setItem("round1_decision", data.decision || "");
 
       if (data.status === "REJECTED") {
-        // Screened out — go to result
         sessionStorage.setItem("rejected_at", "1");
         sessionStorage.setItem("rejection_verdict", data.verdict || "");
         router.push("/result");
       } else {
-        // Pass — store round 2 question and go
         sessionStorage.setItem("current_question", data.question || "");
         router.push("/round/2");
       }
@@ -80,203 +77,179 @@ export default function HomePage() {
     }
   };
 
+  const steps = [
+    { n: 1, label: "Screening", active: true },
+    { n: 2, label: "Technical", active: false },
+    { n: 3, label: "Scenario", active: false },
+    { n: 4, label: "Decision", active: false },
+  ];
+
   return (
     <motion.div
-      className="space-y-6"
+      className="space-y-10"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-      {/* Progress indicator */}
-      <motion.div
-        className="flex items-center gap-2 text-sm text-gray-400"
-        variants={itemVariants}
-      >
-        {[
-          { n: 1, label: "Screening", active: true },
-          { n: 2, label: "Technical", active: false },
-          { n: 3, label: "Scenario", active: false },
-          { n: 4, label: "Decision", active: false },
-        ].map((step, idx) => (
-          <motion.span
-            key={step.n}
-            className="flex items-center gap-1"
-            whileHover={{ x: 2 }}
-          >
-            {idx > 0 && <span className="mx-1 text-gray-600">→</span>}
-            <motion.span
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                step.active
-                  ? "bg-gradient-to-br from-orange-600 to-orange-700 text-white"
-                  : "bg-white/10 text-gray-400"
-              }`}
-              whileHover={{ scale: 1.1 }}
-            >
-              {step.n}
-            </motion.span>
-            <span
-              className={
-                step.active ? "font-medium text-white" : "text-gray-400"
-              }
-            >
-              {step.label}
-            </span>
-          </motion.span>
-        ))}
-      </motion.div>
-
-      {/* Info cards - MOVED TO TOP */}
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
-        variants={itemVariants}
-      >
-        <motion.div
-          className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10 p-4 backdrop-blur-sm"
-          whileHover={{
-            borderColor: "rgba(249, 115, 22, 0.3)",
-            scale: 1.02,
-          }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="text-orange-400 font-bold text-sm mb-1">Round 1</div>
-          <div className="font-semibold text-white text-sm">
-            Resume Screening
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            AI recruiter evaluates role fit, skills, and experience.
-          </p>
-        </motion.div>
-        <motion.div
-          className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10 p-4 backdrop-blur-sm"
-          whileHover={{
-            borderColor: "rgba(249, 115, 22, 0.3)",
-            scale: 1.02,
-          }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="text-orange-400 font-bold text-sm mb-1">
-            Round 2 & 3
-          </div>
-          <div className="font-semibold text-white text-sm">
-            Technical & Scenario
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Deep technical questions and real-world scenario assessment.
-          </p>
-        </motion.div>
-        <motion.div
-          className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10 p-4 backdrop-blur-sm"
-          whileHover={{
-            borderColor: "rgba(249, 115, 22, 0.3)",
-            scale: 1.02,
-          }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="text-green-400 font-bold text-sm mb-1">Final</div>
-          <div className="font-semibold text-white text-sm">
-            Hiring Committee
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Committee reviews all verdicts for a final HIRE/HOLD/REJECT
-            decision.
-          </p>
-        </motion.div>
-      </motion.div>
-
-      {/* Main card */}
-      <motion.div
-        className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-xl border border-white/10 backdrop-blur-sm p-6"
-        variants={itemVariants}
-        whileHover={{
-          borderColor: "rgba(249, 115, 22, 0.3)",
-          boxShadow: "0 0 30px rgba(249, 115, 22, 0.1)",
-        }}
-        transition={{ duration: 0.3 }}
-      >
-        <motion.div
-          className="flex items-center gap-3 mb-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          <span className="text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-            Round 1
+      {/* Hero Section */}
+      <motion.div className="text-center space-y-4" variants={itemVariants}>
+        <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
+          <span className="text-white">AI Interview</span>{" "}
+          <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+            Agent
           </span>
-        </motion.div>
-        <motion.h2 className="text-2xl font-bold bg-gradient-to-r from-white via-white to-orange-400 bg-clip-text text-transparent mb-2">
-          Start Your Interview
-        </motion.h2>
-        <motion.p className="text-gray-400 mb-4 text-sm leading-relaxed">
-          Paste your resume below. Our AI interview panel will evaluate your
-          qualifications through a multi-round process.
-        </motion.p>
+        </h1>
+        <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+          Experience a multi-round interview process powered by specialized AI agents
+        </p>
+      </motion.div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <motion.div variants={itemVariants}>
-            <label
-              htmlFor="resume"
-              className="block text-sm font-medium text-white mb-2"
-            >
-              Resume / CV
-            </label>
-            <textarea
-              id="resume"
-              rows={8}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-y backdrop-blur-sm transition-all"
-              placeholder={`Paste your resume here...\n\nExample:\nJohn Doe - Software Engineer | 5 years experience\nSkills: Python, TypeScript, React, PostgreSQL, AWS\n\nExperience:\n- Senior Engineer at TechCorp (2022-present)\n- Software Engineer at StartupXYZ (2019-2022)`}
-              value={resume}
-              onChange={(e) => setResume(e.target.value)}
-              disabled={loading}
-            />
-          </motion.div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400"
-            >
-              {error}
-            </motion.div>
-          )}
-
-          <motion.button
-            type="submit"
-            disabled={loading || !resume.trim()}
-            className="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 disabled:from-gray-700 disabled:to-gray-800 text-white font-medium text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-          >
-            {loading ? (
-              <>
-                <motion.svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+      {/* Progress Steps */}
+      <motion.div
+        className="flex justify-center"
+        variants={itemVariants}
+      >
+        <div className="flex items-center gap-3">
+          {steps.map((step, idx) => (
+            <div key={step.n} className="flex items-center gap-3">
+              {idx > 0 && (
+                <div className="w-8 h-px bg-gradient-to-r from-gray-700 to-gray-600" />
+              )}
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold transition-all ${
+                    step.active
+                      ? "bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25"
+                      : "bg-white/5 text-gray-500 border border-white/10"
+                  }`}
                 >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </motion.svg>
-                Running Screening Agent...
-              </>
-            ) : (
-              "Submit Resume & Begin Interview"
+                  {step.n}
+                </div>
+                <span
+                  className={`text-base font-medium hidden sm:inline ${
+                    step.active ? "text-white" : "text-gray-500"
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Main Form Card */}
+      <motion.div
+        className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] rounded-2xl border border-white/10 backdrop-blur-sm p-8"
+        variants={itemVariants}
+      >
+        <div className="space-y-6">
+          <div>
+            <span className="text-sm font-semibold uppercase tracking-wider text-orange-400">
+              Round 1 — Resume Screening
+            </span>
+            <h2 className="text-3xl font-bold text-white mt-2">
+              Submit Your Resume
+            </h2>
+            <p className="text-lg text-gray-400 mt-2">
+              Our AI recruiter will evaluate your qualifications and skills
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label
+                htmlFor="resume"
+                className="block text-base font-medium text-white mb-3"
+              >
+                Paste your resume or CV
+              </label>
+              <textarea
+                id="resume"
+                rows={5}
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-base text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 resize-none transition-all"
+                placeholder="John Doe — Software Engineer | 5 years experience
+Skills: Python, TypeScript, React, PostgreSQL, AWS..."
+                value={resume}
+                onChange={(e) => setResume(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-base text-red-400"
+              >
+                {error}
+              </motion.div>
             )}
-          </motion.button>
-        </form>
+
+            <motion.button
+              type="submit"
+              disabled={loading || !resume.trim()}
+              className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 disabled:from-gray-700 disabled:to-gray-800 text-white font-semibold text-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-lg shadow-orange-500/20 disabled:shadow-none"
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+            >
+              {loading ? (
+                <>
+                  <motion.div
+                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                  Analyzing Resume...
+                </>
+              ) : (
+                "Begin Interview →"
+              )}
+            </motion.button>
+          </form>
+        </div>
+      </motion.div>
+
+      {/* How It Works */}
+      <motion.div className="space-y-6" variants={itemVariants}>
+        <h3 className="text-2xl font-bold text-white text-center">
+          How It Works
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            {
+              step: "01",
+              title: "Resume Screening",
+              desc: "AI evaluates your experience, skills, and role fit",
+              color: "orange",
+            },
+            {
+              step: "02",
+              title: "Technical & Scenario",
+              desc: "Answer questions to demonstrate your expertise",
+              color: "orange",
+            },
+            {
+              step: "03",
+              title: "Final Decision",
+              desc: "Hiring committee delivers HIRE, HOLD, or REJECT",
+              color: "green",
+            },
+          ].map((item) => (
+            <motion.div
+              key={item.step}
+              className="relative bg-gradient-to-br from-white/[0.05] to-transparent rounded-xl border border-white/5 p-6"
+              whileHover={{ borderColor: "rgba(255,255,255,0.15)", y: -2 }}
+              transition={{ duration: 0.2 }}
+            >
+              <span className={`text-5xl font-bold ${item.color === "green" ? "text-green-500/20" : "text-orange-500/20"}`}>
+                {item.step}
+              </span>
+              <h4 className="text-xl font-semibold text-white mt-2">{item.title}</h4>
+              <p className="text-base text-gray-500 mt-1">{item.desc}</p>
+            </motion.div>
+          ))}
+        </div>
       </motion.div>
     </motion.div>
   );
