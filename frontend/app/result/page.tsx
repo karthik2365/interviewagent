@@ -1,11 +1,10 @@
-"use client";
+'use client'
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useFullscreen } from "../hooks/useFullscreen";
-import FullscreenWarning from "../components/FullscreenWarning";
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 
-const API_BASE = "/api";
+const API_BASE = '/api'
 
 type FinalResult = {
   decision: string;
@@ -15,26 +14,46 @@ type FinalResult = {
 
 const DECISION_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   HIRE: {
-    bg: "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700",
-    text: "text-green-800 dark:text-green-300",
-    label: "HIRE",
+    bg: 'bg-gradient-to-br from-green-500/20 to-green-600/10 border-green-500/30',
+    text: 'text-green-400',
+    label: 'HIRE',
   },
   HOLD: {
-    bg: "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700",
-    text: "text-yellow-800 dark:text-yellow-300",
-    label: "HOLD",
+    bg: 'bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border-yellow-500/30',
+    text: 'text-yellow-400',
+    label: 'HOLD',
   },
   REJECT: {
-    bg: "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700",
-    text: "text-red-800 dark:text-red-300",
-    label: "REJECT",
+    bg: 'bg-gradient-to-br from-red-500/20 to-red-600/10 border-red-500/30',
+    text: 'text-red-400',
+    label: 'REJECT',
   },
   FAIL: {
-    bg: "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700",
-    text: "text-red-800 dark:text-red-300",
-    label: "REJECTED",
+    bg: 'bg-gradient-to-br from-red-500/20 to-red-600/10 border-red-500/30',
+    text: 'text-red-400',
+    label: 'REJECTED',
   },
-};
+}
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1,
+    },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: 'easeOut' },
+  },
+}
 
 export default function ResultPage() {
   const router = useRouter();
@@ -43,7 +62,6 @@ export default function ResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [rejectedAt, setRejectedAt] = useState<string | null>(null);
   const [verdicts, setVerdicts] = useState<Record<string, string>>({});
-  const { showWarning, dismissWarning, exitFullscreen } = useFullscreen();
 
   useEffect(() => {
     // Collect stored verdicts from sessionStorage
@@ -90,164 +108,149 @@ export default function ResultPage() {
     }
   };
 
-  const handleRestart = async () => {
-    // Clear all interview data from sessionStorage
+  const handleRestart = () => {
     sessionStorage.clear();
-    await exitFullscreen();
-    // Force a full page reload to clear any React state
-    window.location.href = "/";
+    router.push("/");
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <svg
-          className="animate-spin h-10 w-10 text-blue-600"
-          viewBox="0 0 24 24"
-          fill="none"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          />
-        </svg>
-        <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
+      <motion.div className="flex flex-col items-center justify-center py-20 space-y-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <motion.svg className="h-10 w-10 text-orange-400" viewBox="0 0 24 24" fill="none" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </motion.svg>
+        <motion.p className="text-gray-400 text-sm font-medium" animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 2, repeat: Infinity }}>
           Hiring Committee is deliberating...
-        </p>
-      </div>
-    );
+        </motion.p>
+      </motion.div>
+    )
   }
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-5 py-4 text-sm text-red-700 dark:text-red-400">
+      <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <motion.div className="bg-red-500/10 border border-red-500/20 rounded-xl px-5 py-4 text-sm text-red-400" variants={itemVariants}>
           {error}
-        </div>
-        <button
+        </motion.div>
+        <motion.button
           onClick={handleRestart}
-          className="py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm"
+          className="py-2 px-4 rounded-xl bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white font-medium text-sm"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
         >
           Start New Interview
-        </button>
-      </div>
-    );
+        </motion.button>
+      </motion.div>
+    )
   }
 
-  const decision = result?.decision?.toUpperCase() || "UNKNOWN";
-  const style = DECISION_STYLES[decision] || DECISION_STYLES.HOLD;
+  const decision = result?.decision?.toUpperCase() || 'UNKNOWN'
+  const style = DECISION_STYLES[decision] || DECISION_STYLES.HOLD
 
   return (
-    <div className="space-y-8">
-      <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
-
+    <motion.div className="space-y-8" variants={containerVariants} initial="hidden" animate="visible">
       {/* Progress indicator — all complete */}
-      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+      <motion.div className="flex items-center gap-2 text-sm text-gray-400" variants={itemVariants}>
         {[
-          { n: 1, label: "Screening" },
-          { n: 2, label: "Technical" },
-          { n: 3, label: "Scenario" },
-          { n: 4, label: "Decision" },
+          { n: 1, label: 'Screening' },
+          { n: 2, label: 'Technical' },
+          { n: 3, label: 'Scenario' },
+          { n: 4, label: 'Decision' },
         ].map((step, idx) => {
-          const isRejected = rejectedAt && step.n > parseInt(rejectedAt, 10);
+          const isRejected = rejectedAt && step.n > parseInt(rejectedAt, 10)
           return (
-            <span key={step.n} className="flex items-center gap-1">
-              {idx > 0 && <span className="mx-1">→</span>}
-              <span
+            <motion.span key={step.n} className="flex items-center gap-1" whileHover={{ x: 2 }}>
+              {idx > 0 && <span className="mx-1 text-gray-600">→</span>}
+              <motion.span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                   isRejected
-                    ? "bg-gray-200 dark:bg-gray-700"
+                    ? 'bg-white/10 text-gray-400'
                     : step.n === 4
-                    ? "bg-blue-600 text-white"
-                    : "bg-green-500 text-white"
+                      ? 'bg-gradient-to-br from-orange-600 to-orange-700 text-white'
+                      : 'bg-gradient-to-br from-green-500 to-green-600 text-white'
                 }`}
+                whileHover={{ scale: 1.1 }}
               >
-                {isRejected ? "—" : step.n === 4 ? "★" : "✓"}
-              </span>
-              <span
-                className={
-                  step.n === 4
-                    ? "font-medium text-gray-900 dark:text-gray-100"
-                    : ""
-                }
-              >
+                {isRejected ? '—' : step.n === 4 ? '★' : '✓'}
+              </motion.span>
+              <span className={step.n === 4 ? 'font-medium text-white' : 'text-gray-400'}>
                 {step.label}
               </span>
-            </span>
-          );
+            </motion.span>
+          )
         })}
-      </div>
+      </motion.div>
 
       {/* Decision badge */}
-      <div className={`rounded-xl border-2 p-8 text-center ${style.bg}`}>
+      <motion.div className={`rounded-2xl border-2 p-8 text-center backdrop-blur-sm ${style.bg}`} variants={itemVariants} whileHover={{ scale: 1.02 }} transition={{ duration: 0.3 }}>
         {rejectedAt && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+          <motion.p className="text-sm text-gray-400 mb-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
             Interview ended at Round {rejectedAt}
-          </p>
+          </motion.p>
         )}
-        <div className={`text-4xl font-black ${style.text}`}>
+        <motion.div className={`text-5xl font-black bg-gradient-to-r ${
+          decision === 'HIRE'
+            ? 'from-green-400 to-green-300'
+            : decision === 'HOLD'
+              ? 'from-yellow-400 to-yellow-300'
+              : 'from-red-400 to-red-300'
+        } bg-clip-text text-transparent`} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
           {style.label}
-        </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-          {decision === "HIRE"
-            ? "The hiring committee recommends hiring this candidate."
-            : decision === "HOLD"
-            ? "The committee suggests holding for now — review with the team."
-            : rejectedAt
-            ? `The candidate was rejected in round ${rejectedAt}.`
-            : "The hiring committee does not recommend hiring at this time."}
-        </p>
-      </div>
+        </motion.div>
+        <motion.p className="text-sm text-gray-400 mt-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+          {decision === 'HIRE'
+            ? 'The hiring committee recommends hiring this candidate.'
+            : decision === 'HOLD'
+              ? 'The committee suggests holding for now — review with the team.'
+              : rejectedAt
+                ? `The candidate was rejected in round ${rejectedAt}.`
+                : 'The hiring committee does not recommend hiring at this time.'}
+        </motion.p>
+      </motion.div>
 
       {/* Full rationale */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-8">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-          {rejectedAt ? "Round Verdict" : "Hiring Committee Rationale"}
-        </h3>
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg px-5 py-4 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-          {result?.rationale || "No rationale available."}
-        </div>
-      </div>
+      <motion.div className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-xl border border-white/10 backdrop-blur-sm p-8" variants={itemVariants}>
+        <motion.h3 className="text-lg font-bold text-white mb-4">
+          {rejectedAt ? 'Round Verdict' : 'Hiring Committee Rationale'}
+        </motion.h3>
+        <motion.div className="bg-white/5 rounded-xl px-5 py-4 text-sm text-gray-200 whitespace-pre-wrap leading-relaxed border border-white/10">
+          {result?.rationale || 'No rationale available.'}
+        </motion.div>
+      </motion.div>
 
       {/* Round verdicts accordion */}
       {Object.keys(verdicts).length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-8">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+        <motion.div className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-xl border border-white/10 backdrop-blur-sm p-8" variants={itemVariants}>
+          <motion.h3 className="text-lg font-bold text-white mb-4">
             Round-by-Round Verdicts
-          </h3>
-          <div className="space-y-4">
+          </motion.h3>
+          <motion.div className="space-y-4">
             {Object.entries(verdicts).map(([key, text]) => (
-              <details key={key} className="group">
-                <summary className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-700">
-                  {key.replace("round", "Round ")} — Click to expand
+              <motion.details key={key} className="group" variants={itemVariants}>
+                <summary className="cursor-pointer text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors">
+                  {key.replace('round', 'Round ')} — Click to expand
                 </summary>
-                <div className="mt-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-4 py-3 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                <motion.div className="mt-2 bg-white/5 rounded-lg px-4 py-3 text-xs text-gray-200 whitespace-pre-wrap border border-white/10">
                   {text}
-                </div>
-              </details>
+                </motion.div>
+              </motion.details>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {/* Restart */}
-      <div className="text-center">
-        <button
+      <motion.div className="text-center" variants={itemVariants}>
+        <motion.button
           onClick={handleRestart}
-          className="py-3 px-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition-colors"
+          className="py-3 px-8 rounded-xl bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white font-medium text-sm transition-all"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
           Start New Interview
-        </button>
-      </div>
-    </div>
-  );
+        </motion.button>
+      </motion.div>
+    </motion.div>
+  )
 }

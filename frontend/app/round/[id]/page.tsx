@@ -2,23 +2,42 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useFullscreen } from "../../hooks/useFullscreen";
-import FullscreenWarning from "../../components/FullscreenWarning";
+import { motion } from "framer-motion";
 
 const API_BASE = "/api";
 
 const ROUND_META: Record<string, { title: string; subtitle: string; color: string }> = {
-  "2": {
-    title: "Technical Interview",
-    subtitle: "Answer the technical questions below. The AI interviewer will evaluate correctness, depth, and clarity.",
-    color: "purple",
+  '2': {
+    title: 'Technical Interview',
+    subtitle: 'Answer the technical questions below. The AI interviewer will evaluate correctness, depth, and clarity.',
+    color: 'purple',
   },
-  "3": {
-    title: "Scenario Interview",
-    subtitle: "Respond to the production scenario below. Show your decision-making, trade-off analysis, and practical judgment.",
-    color: "amber",
+  '3': {
+    title: 'Scenario Interview',
+    subtitle: 'Respond to the production scenario below. Show your decision-making, trade-off analysis, and practical judgment.',
+    color: 'amber',
   },
-};
+}
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1,
+    },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: 'easeOut' },
+  },
+}
 
 export default function RoundPage() {
   const router = useRouter();
@@ -29,7 +48,6 @@ export default function RoundPage() {
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { showWarning, dismissWarning } = useFullscreen();
 
   const meta = ROUND_META[roundId] || {
     title: `Round ${roundId}`,
@@ -42,13 +60,9 @@ export default function RoundPage() {
     const storedQuestion = sessionStorage.getItem("current_question");
     if (storedQuestion) {
       setQuestion(storedQuestion);
-      // Clear so it doesn't persist to a future interview
-      sessionStorage.removeItem("current_question");
     } else {
       setError("No question found. Please start the interview from the beginning.");
     }
-    // Reset answer field for each round
-    setAnswer("");
   }, [roundId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,131 +115,108 @@ export default function RoundPage() {
     }
   };
 
-  const roundNum = parseInt(roundId, 10);
+  const roundNum = parseInt(roundId, 10)
 
   return (
-    <div className="space-y-8">
-      <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
-
+    <motion.div className="space-y-8" variants={containerVariants} initial="hidden" animate="visible">
       {/* Progress indicator */}
-      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+      <motion.div className="flex items-center gap-2 text-sm text-gray-400" variants={itemVariants}>
         {[
-          { n: 1, label: "Screening" },
-          { n: 2, label: "Technical" },
-          { n: 3, label: "Scenario" },
-          { n: 4, label: "Decision" },
+          { n: 1, label: 'Screening' },
+          { n: 2, label: 'Technical' },
+          { n: 3, label: 'Scenario' },
+          { n: 4, label: 'Decision' },
         ].map((step, idx) => (
-          <span key={step.n} className="flex items-center gap-1">
-            {idx > 0 && <span className="mx-1">→</span>}
-            <span
+          <motion.span key={step.n} className="flex items-center gap-1" whileHover={{ x: 2 }}>
+            {idx > 0 && <span className="mx-1 text-gray-600">→</span>}
+            <motion.span
               className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                 step.n < roundNum
-                  ? "bg-green-500 text-white"
+                  ? 'bg-gradient-to-br from-green-500 to-green-600 text-white'
                   : step.n === roundNum
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700"
+                    ? 'bg-gradient-to-br from-orange-600 to-orange-700 text-white'
+                    : 'bg-white/10 text-gray-400'
               }`}
+              whileHover={{ scale: 1.1 }}
             >
-              {step.n < roundNum ? "✓" : step.n}
-            </span>
-            <span
-              className={
-                step.n === roundNum
-                  ? "font-medium text-gray-900 dark:text-gray-100"
-                  : ""
-              }
-            >
+              {step.n < roundNum ? '✓' : step.n}
+            </motion.span>
+            <span className={step.n === roundNum ? 'font-medium text-white' : 'text-gray-400'}>
               {step.label}
             </span>
-          </span>
+          </motion.span>
         ))}
-      </div>
+      </motion.div>
 
       {/* Main card */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-8">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+      <motion.div className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-xl border border-white/10 backdrop-blur-sm p-8" variants={itemVariants} whileHover={{ borderColor: 'rgba(249, 115, 22, 0.3)', boxShadow: '0 0 30px rgba(249, 115, 22, 0.1)' }} transition={{ duration: 0.3 }}>
+        <motion.div className="flex items-center gap-3 mb-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+          <span className="text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
             Round {roundId}
           </span>
-        </div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+        </motion.div>
+        <motion.h2 className="text-3xl font-bold bg-gradient-to-r from-white via-white to-orange-400 bg-clip-text text-transparent mb-2">
           {meta.title}
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+        </motion.h2>
+        <motion.p className="text-gray-400 mb-6 text-sm leading-relaxed">
           {meta.subtitle}
-        </p>
+        </motion.p>
 
         {/* Question display */}
         {question && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-5 py-4 mb-6">
-            <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">
+          <motion.div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-xl px-5 py-4 mb-6 backdrop-blur-sm" variants={itemVariants}>
+            <div className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-2">
               Interview Question
             </div>
-            <div className="text-gray-900 dark:text-gray-100 text-sm whitespace-pre-wrap leading-relaxed">
+            <div className="text-gray-100 text-sm whitespace-pre-wrap leading-relaxed">
               {question}
             </div>
-          </div>
+          </motion.div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="answer"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
+          <motion.div variants={itemVariants}>
+            <label htmlFor="answer" className="block text-sm font-medium text-white mb-2">
               Your Answer
             </label>
             <textarea
               id="answer"
               rows={10}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-y backdrop-blur-sm transition-all"
               placeholder="Type your answer here..."
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               disabled={loading}
             />
-          </div>
+          </motion.div>
 
           {error && (
-            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
               {error}
-            </div>
+            </motion.div>
           )}
 
-          <button
+          <motion.button
             type="submit"
             disabled={loading || !answer.trim()}
-            className="w-full py-3 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium text-sm transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 disabled:from-gray-700 disabled:to-gray-800 text-white font-medium text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             {loading ? (
               <>
-                <svg
-                  className="animate-spin h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
+                <motion.svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </motion.svg>
                 Evaluating your response...
               </>
             ) : (
-              "Submit Answer"
+              'Submit Answer'
             )}
-          </button>
+          </motion.button>
         </form>
-      </div>
-    </div>
-  );
+      </motion.div>
+    </motion.div>
+  )
 }
