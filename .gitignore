@@ -1,0 +1,28 @@
+# Environment variables
+.env
+
+
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.venv/
+
+# Verdict files (generated at runtime)
+verdicts/*.txt
+!verdicts/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+.next
+node_modules
+/.DS_Store
