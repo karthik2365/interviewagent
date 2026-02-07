@@ -10,27 +10,28 @@ from crewai import Task, Agent
 
 # ── Round 1: Screening ──────────────────────────────────────────────
 
-def create_screening_task(agent: Agent, resume: str) -> Task:
+def create_screening_task(agent: Agent, resume: str, role: str) -> Task:
     """
-    Screening task — agent evaluates resume only.
+    Screening task — agent evaluates resume against a specific role.
     """
     return Task(
         description=(
-            f"You are conducting a resume screening for a software engineering role.\n\n"
+            f"You are conducting a resume screening for the **{role}** role.\n\n"
+            f"## TARGET ROLE\n{role}\n\n"
             f"## CANDIDATE RESUME\n{resume}\n\n"
             f"## YOUR TASK\n"
-            f"1. Evaluate the resume for role fit, relevant skills, and experience.\n"
-            f"2. Identify strengths and weaknesses.\n"
+            f"1. Evaluate the resume specifically for the **{role}** role — assess role fit, relevant skills, and experience.\n"
+            f"2. Identify strengths and weaknesses relative to the {role} position.\n"
             f"3. Decide: PASS, BORDERLINE, or FAIL.\n"
             f"4. Assign a score from 0 to 10.\n"
-            f"5. Generate 2-3 technical questions you would recommend for the next round.\n\n"
+            f"5. Generate 2-3 technical questions you would recommend for the next round, tailored to the {role} role.\n\n"
             f"## REQUIRED OUTPUT FORMAT (follow exactly)\n"
-            f"ROUND 1 — SCREENING\n\n"
+            f"ROUND 1 — SCREENING (Role: {role})\n\n"
             f"Decision: [PASS|BORDERLINE|FAIL]\n"
             f"Score: [X] / 10\n\n"
-            f"Strengths: [key strengths]\n"
-            f"Weaknesses: [key weaknesses]\n\n"
-            f"Reasoning: [detailed explanation]\n\n"
+            f"Strengths: [key strengths for {role}]\n"
+            f"Weaknesses: [key weaknesses for {role}]\n\n"
+            f"Reasoning: [detailed explanation of fit for {role}]\n\n"
             f"Recommended Questions for Next Round:\n"
             f"1. [question]\n"
             f"2. [question]\n"

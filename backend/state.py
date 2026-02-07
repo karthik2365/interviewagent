@@ -13,11 +13,20 @@ import shutil
 VERDICTS_DIR = os.path.join(os.path.dirname(__file__), "verdicts")
 
 
+# Available interview roles
+AVAILABLE_ROLES = [
+    "SDE 1",
+    "AI Engineer",
+    "Backend Developer",
+]
+
+
 def _empty_state() -> dict:
     return {
         "round": 1,
         "status": "ONGOING",  # ONGOING | REJECTED | COMPLETE
         "resume": "",
+        "role": "",
         "answers": {
             "round1": [],
             "round2": [],

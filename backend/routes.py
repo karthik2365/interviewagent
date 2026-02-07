@@ -8,7 +8,7 @@ All decisions are made by CrewAI agents via crew_runner.py.
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from state import get_state, update_state, reset_state, interview_state
+from state import get_state, update_state, reset_state, interview_state, AVAILABLE_ROLES
 from crew_runner import (
     run_screening,
     run_technical_questions,
@@ -26,6 +26,7 @@ router = APIRouter()
 
 class StartRequest(BaseModel):
     resume: str
+    role: str
 
 
 class AnswerRequest(BaseModel):
@@ -47,13 +48,17 @@ async def start_interview(req: StartRequest):
     """
     if not req.resume.strip():
         raise HTTPException(status_code=400, detail="Resume cannot be empty.")
+    if not req.role.strip():
+        raise HTTPException(status_code=400, detail="Role must be selected.")
+    if req.role.strip() not in AVAILABLE_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Choose from: {AVAILABLE_ROLES}")
 
     # Reset everything for a fresh interview
     reset_state()
-    update_state(resume=req.resume.strip())
+    update_state(resume=req.resume.strip(), role=req.role.strip())
 
-    # Run Round 1 — Screening Agent (context: resume only)
-    result = run_screening(req.resume.strip())
+    # Run Round 1 — Screening Agent (context: resume + role)
+    result = run_screening(req.resume.strip(), req.role.strip())
 
     # Update SESSION CONTEXT
     interview_state["verdicts"]["round1"] = "verdicts/round1.txt"
@@ -253,6 +258,12 @@ async def final_decision():
 # ── GET /status ──────────────────────────────────────────────────────
 
 
+@router.get("/roles")
+async def get_available_roles():
+    """Return the list of available interview roles."""
+    return {"roles": AVAILABLE_ROLES}
+
+
 @router.get("/status")
 async def get_interview_status():
     """Return current interview state (for frontend polling / debugging)."""
@@ -260,6 +271,7 @@ async def get_interview_status():
     return {
         "round": state["round"],
         "status": state["status"],
+        "role": state["role"],
         "has_resume": bool(state["resume"]),
         "verdicts": {
             k: v is not None for k, v in state["verdicts"].items()

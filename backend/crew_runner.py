@@ -96,14 +96,14 @@ def _parse_decision(verdict_text: str) -> str:
 # ── Round 1: Screening ──────────────────────────────────────────────
 
 
-def run_screening(resume: str) -> dict:
+def run_screening(resume: str, role: str) -> dict:
     """
     Run the Screening Agent.
-    AGENT CONTEXT: Resume only.
+    AGENT CONTEXT: Resume + target role.
     Writes: verdicts/round1.txt
     """
     agent = create_screening_agent()
-    task = create_screening_task(agent, resume)
+    task = create_screening_task(agent, resume, role)
 
     crew = Crew(agents=[agent], tasks=[task], verbose=True)
     verdict_text = _run_crew_with_retry(crew)
