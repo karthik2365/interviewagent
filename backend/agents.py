@@ -7,8 +7,8 @@ only the context it is explicitly given (AGENT CONTEXT principle).
 
 from crewai import Agent
 
-# LLM model — Gemini 2.0 Flash via LiteLLM provider prefix
-LLM_MODEL = "gemini/gemini-2.0-flash"
+# LLM model — Gemini 2.5 Flash via LiteLLM provider prefix
+LLM_MODEL = "gemini/gemini-2.5-flash"
 
 
 def create_screening_agent() -> Agent:
