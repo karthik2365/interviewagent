@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useFullscreen } from "./hooks/useFullscreen";
+import FullscreenWarning from "./components/FullscreenWarning";
 
 const API_BASE = "/api";
 
@@ -18,6 +20,7 @@ export default function HomePage() {
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { enterFullscreen } = useFullscreen();
 
   useEffect(() => {
     fetch(`${API_BASE}/roles`)
@@ -32,6 +35,10 @@ export default function HomePage() {
 
     setLoading(true);
     setError(null);
+
+    // Enter fullscreen and mark interview as active
+    sessionStorage.setItem("interview_active", "true");
+    await enterFullscreen();
 
     try {
       const res = await fetch(`${API_BASE}/start`, {

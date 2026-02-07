@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useFullscreen } from "../../hooks/useFullscreen";
+import FullscreenWarning from "../../components/FullscreenWarning";
 
 const API_BASE = "/api";
 
@@ -27,6 +29,7 @@ export default function RoundPage() {
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showWarning, dismissWarning } = useFullscreen();
 
   const meta = ROUND_META[roundId] || {
     title: `Round ${roundId}`,
@@ -98,6 +101,8 @@ export default function RoundPage() {
 
   return (
     <div className="space-y-8">
+      <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
+
       {/* Progress indicator */}
       <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
         {[

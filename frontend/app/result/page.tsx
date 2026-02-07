@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useFullscreen } from "../hooks/useFullscreen";
+import FullscreenWarning from "../components/FullscreenWarning";
 
 const API_BASE = "/api";
 
@@ -41,6 +43,7 @@ export default function ResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [rejectedAt, setRejectedAt] = useState<string | null>(null);
   const [verdicts, setVerdicts] = useState<Record<string, string>>({});
+  const { showWarning, dismissWarning, exitFullscreen } = useFullscreen();
 
   useEffect(() => {
     // Collect stored verdicts from sessionStorage
@@ -87,8 +90,10 @@ export default function ResultPage() {
     }
   };
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
+    sessionStorage.removeItem("interview_active");
     sessionStorage.clear();
+    await exitFullscreen();
     router.push("/");
   };
 
@@ -142,6 +147,8 @@ export default function ResultPage() {
 
   return (
     <div className="space-y-8">
+      <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
+
       {/* Progress indicator — all complete */}
       <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
         {[
