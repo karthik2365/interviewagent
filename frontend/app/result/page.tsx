@@ -91,10 +91,11 @@ export default function ResultPage() {
   };
 
   const handleRestart = async () => {
-    sessionStorage.removeItem("interview_active");
+    // Clear all interview data from sessionStorage
     sessionStorage.clear();
     await exitFullscreen();
-    router.push("/");
+    // Force a full page reload to clear any React state
+    window.location.href = "/";
   };
 
   if (loading) {

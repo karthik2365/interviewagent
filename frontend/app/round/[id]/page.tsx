@@ -42,9 +42,13 @@ export default function RoundPage() {
     const storedQuestion = sessionStorage.getItem("current_question");
     if (storedQuestion) {
       setQuestion(storedQuestion);
+      // Clear so it doesn't persist to a future interview
+      sessionStorage.removeItem("current_question");
     } else {
       setError("No question found. Please start the interview from the beginning.");
     }
+    // Reset answer field for each round
+    setAnswer("");
   }, [roundId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

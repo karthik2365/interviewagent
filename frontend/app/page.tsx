@@ -29,6 +29,11 @@ export default function HomePage() {
       .catch(() => setRoles(["SDE 1", "AI Engineer", "Backend Developer"]));
   }, []);
 
+  // Clear any stale session data when home page loads
+  useEffect(() => {
+    sessionStorage.clear();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resume.trim() || !role) return;
@@ -36,11 +41,17 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
 
+    // Clear all previous interview data
+    sessionStorage.clear();
+
     // Enter fullscreen and mark interview as active
     sessionStorage.setItem("interview_active", "true");
     await enterFullscreen();
 
     try {
+      // Reset backend state first to clear any stale verdict files
+      await fetch(`${API_BASE}/reset`, { method: "POST" });
+
       const res = await fetch(`${API_BASE}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

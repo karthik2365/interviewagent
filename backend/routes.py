@@ -33,6 +33,19 @@ class AnswerRequest(BaseModel):
     answer: str
 
 
+# ── POST /reset ──────────────────────────────────────────────────────
+
+
+@router.post("/reset")
+async def reset_interview():
+    """
+    Explicitly reset all interview state and clear verdict files.
+    Called by the frontend before starting a new interview.
+    """
+    reset_state()
+    return {"status": "reset", "message": "Interview state cleared."}
+
+
 # ── POST /start ──────────────────────────────────────────────────────
 
 
