@@ -1,0 +1,24 @@
+ROUND 1 — SCREENING (Role: AI Engineer)
+
+Decision: PASS
+Score: 8.5 / 10
+
+Strengths:
+*   **Exceptional Project Portfolio:** The candidate showcases impressive hands-on experience with multiple, highly relevant AI projects, including LLMs (Gemini), Generative AI (Stability Diffusion XL, Vidu AI Q2), and traditional ML. Projects like "Adverto" demonstrate complex integrations, full-stack development, and MLOps-related skills (Docker).
+*   **Strong AI/ML Skillset:** Proficient in key AI/ML frameworks (PyTorch, TensorFlow, Hugging Face, Scikit-learn), essential for an AI Engineer.
+*   **Full-Stack & Deployment Acumen:** Experience with web frameworks (Next.js, Node.js, Flask, Streamlit) and database technologies, indicating an ability to build and deploy end-to-end AI applications. The use of Docker in "Adverto" is a significant plus for deployment.
+*   **Prompt Engineering Experience:** Direct mention of prompt engineering and fine-tuning Gemini responses, demonstrating practical understanding of working with LLMs.
+*   **Foundational Technical Skills:** Solid grasp of Python, data science libraries (NumPy, Pandas), and version control (Git, GitHub).
+
+Weaknesses:
+*   **Limited Professional AI Engineering Experience:** The work experience listed is either club leadership or a web design internship, not direct AI engineering roles. This is expected given the candidate's undergraduate status.
+*   **Lack of Cloud Platform Experience:** No explicit mention of major cloud platforms (AWS, GCP, Azure) for deploying, managing, or scaling AI models, which is often a critical skill for AI Engineers.
+*   **Still an Undergraduate:** While impressive for their current academic stage, they are still pursuing their degree (graduating Aug 2027), meaning a lack of extensive industry experience.
+
+Reasoning:
+This candidate presents an exceptionally strong profile for an AI Engineer, especially considering they are still an undergraduate. While professional AI engineering experience is absent, their project work more than compensates, demonstrating a proactive approach, deep technical skills, and a practical understanding of building and deploying complex AI solutions. The range of projects, from LLM-powered chatbots to generative media platforms, showcases a broad and advanced skillset directly applicable to the role. The candidate has clearly gone above and beyond to gain relevant experience through self-driven projects. Their ability to integrate multiple advanced AI models, work with microservices, and use tools like Docker highlights a strong aptitude for the challenges an AI Engineer faces. They are a promising candidate who has demonstrated the capability to learn quickly and apply advanced AI concepts.
+
+Recommended Questions for Next Round:
+1.  In your Adverto project, you integrated Gemini, Stability Diffusion XL, and Vidu AI Q2. Could you elaborate on the challenges you faced in orchestrating these different AI models and their APIs? How did you handle aspects like model inference latency, potential API rate limits, and data flow between these diverse services?
+2.  Regarding your Healio or TalentScout AI projects, walk us through your prompt engineering process for the Gemini LLM. How did you iterate on prompts to achieve the desired responses, and what methods did you use to evaluate the quality and relevance of the AI's output?
+3.  Imagine scaling up your Adverto platform to millions of users. How would you approach deploying and managing the AI models and microservices in a production cloud environment (e.g., AWS, GCP)? What considerations would you prioritize for reliability, cost-efficiency, and model versioning?

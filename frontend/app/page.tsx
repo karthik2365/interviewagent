@@ -1,347 +1,578 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Player, type PlayerRef } from "@remotion/player";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { useFullscreen } from "./hooks/useFullscreen";
-import FullscreenWarning from "./components/FullscreenWarning";
 
-const API_BASE = "/api";
+// Dynamic import for the composition to avoid SSR issues
+const LazyAgentInterview = React.lazy(() =>
+  import("@/remotion/AgentInterview").then((mod) => ({
+    default: mod.AgentInterview,
+  }))
+);
 
-const ROLE_DESCRIPTIONS: Record<string, string> = {
-  "SDE 1": "Entry-level software development engineer focused on coding, debugging, and building reliable software.",
-  "AI Engineer": "Engineer specializing in machine learning, deep learning, and AI system design.",
-  "Backend Developer": "Developer focused on server-side logic, APIs, databases, and system architecture.",
-};
+const COMPOSITION_FPS = 60;
+const COMPOSITION_DURATION = 1680;
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.1,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: "easeOut" as const },
-  },
-};
-
-export default function HomePage() {
+export default function LandingPage() {
   const router = useRouter();
-  const [resume, setResume] = useState("");
-  const [role, setRole] = useState("");
-  const [roles, setRoles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { enterFullscreen, showWarning, dismissWarning } = useFullscreen();
+  const playerRef = useRef<PlayerRef>(null);
+  const [mounted, setMounted] = useState(false);
 
-  // Clear stale session data and fetch roles on mount
   useEffect(() => {
-    sessionStorage.clear();
-    fetch(`${API_BASE}/roles`)
-      .then((res) => res.json())
-      .then((data) => setRoles(data.roles || []))
-      .catch(() => setRoles(["SDE 1", "AI Engineer", "Backend Developer"]));
+    setMounted(true);
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!resume.trim() || !role) return;
+  const features = [
+    {
+      icon: "🔍",
+      title: "AI Resume Screening",
+      description: "Intelligent ATS agent evaluates role fit, skills alignment, and experience depth in seconds.",
+      color: "#f97316",
+      round: "Round 1",
+    },
+    {
+      icon: "⚙️",
+      title: "Technical Deep-Dive",
+      description: "Specialized technical agent probes system design, coding ability, and architectural thinking.",
+      color: "#fb923c",
+      round: "Round 2",
+    },
+    {
+      icon: "🌐",
+      title: "Scenario Assessment",
+      description: "Real-world production scenarios test decision-making under pressure and incident response.",
+      color: "#ea580c",
+      round: "Round 3",
+    },
+    {
+      icon: "⚖️",
+      title: "Hiring Committee",
+      description: "Multi-agent deliberation synthesizes all evidence into a transparent, auditable final decision.",
+      color: "#fbbf24",
+      round: "Final",
+    },
+  ];
 
-    setLoading(true);
-    setError(null);
-
-    // Clear previous interview data
-    sessionStorage.clear();
-
-    // Enter fullscreen and mark interview as active
-    sessionStorage.setItem("interview_active", "true");
-    await enterFullscreen();
-
-    try {
-      // Reset backend state
-      await fetch(`${API_BASE}/reset`, { method: "POST" });
-
-      const res = await fetch(`${API_BASE}/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resume: resume.trim(), role }),
-      });
-
-      if (!res.ok) {
-        let detail = "Failed to start interview.";
-        try {
-          const data = await res.json();
-          detail = data.detail || detail;
-        } catch {
-          if (res.status === 429) detail = "AI rate limit reached. Please wait a minute and try again.";
-        }
-        throw new Error(detail);
-      }
-
-      const data = await res.json();
-
-      // Store screening result and next question for round 2
-      sessionStorage.setItem("round1_verdict", data.verdict || "");
-      sessionStorage.setItem("round1_decision", data.decision || "");
-      sessionStorage.setItem("interview_role", role);
-
-      if (data.status === "REJECTED") {
-        // Screened out — go to result
-        sessionStorage.setItem("rejected_at", "1");
-        sessionStorage.setItem("rejection_verdict", data.verdict || "");
-        router.push("/result");
-      } else {
-        // Pass — store round 2 question and go
-        sessionStorage.setItem("current_question", data.question || "");
-        router.push("/round/2");
-      }
-    } catch (err: any) {
-      setError(err.message || "Something went wrong.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const stats = [
+    { value: "4", label: "AI Agents" },
+    { value: "3", label: "Interview Rounds" },
+    { value: "<2m", label: "Total Time" },
+    { value: "100%", label: "Auditable" },
+  ];
 
   return (
-    <motion.div
-      className="space-y-6"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#05080f",
+        color: "#e0e8f0",
+        fontFamily: "'Inter', system-ui, sans-serif",
+        overflow: "hidden",
+      }}
     >
-      <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
-
-      {/* Progress indicator */}
-      <motion.div
-        className="flex items-center gap-2 text-sm text-gray-400"
-        variants={itemVariants}
-      >
-        {[
-          { n: 1, label: "Screening", active: true },
-          { n: 2, label: "Technical", active: false },
-          { n: 3, label: "Scenario", active: false },
-          { n: 4, label: "Decision", active: false },
-        ].map((step, idx) => (
-          <motion.span
-            key={step.n}
-            className="flex items-center gap-1"
-            whileHover={{ x: 2 }}
-          >
-            {idx > 0 && <span className="mx-1 text-gray-600">→</span>}
-            <motion.span
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                step.active
-                  ? "bg-gradient-to-br from-orange-600 to-orange-700 text-white"
-                  : "bg-white/10 text-gray-400"
-              }`}
-              whileHover={{ scale: 1.1 }}
-            >
-              {step.n}
-            </motion.span>
-            <span
-              className={
-                step.active ? "font-medium text-white" : "text-gray-400"
-              }
-            >
-              {step.label}
-            </span>
-          </motion.span>
-        ))}
-      </motion.div>
-
-      {/* Info cards - MOVED TO TOP */}
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
-        variants={itemVariants}
-      >
-        <motion.div
-          className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10 p-4 backdrop-blur-sm"
-          whileHover={{
-            borderColor: "rgba(249, 115, 22, 0.3)",
-            scale: 1.02,
-          }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="text-orange-400 font-bold text-sm mb-1">Round 1</div>
-          <div className="font-semibold text-white text-sm">
-            Resume Screening
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            AI recruiter evaluates role fit, skills, and experience.
-          </p>
-        </motion.div>
-        <motion.div
-          className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10 p-4 backdrop-blur-sm"
-          whileHover={{
-            borderColor: "rgba(249, 115, 22, 0.3)",
-            scale: 1.02,
-          }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="text-orange-400 font-bold text-sm mb-1">
-            Round 2 & 3
-          </div>
-          <div className="font-semibold text-white text-sm">
-            Technical & Scenario
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Deep technical questions and real-world scenario assessment.
-          </p>
-        </motion.div>
-        <motion.div
-          className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10 p-4 backdrop-blur-sm"
-          whileHover={{
-            borderColor: "rgba(249, 115, 22, 0.3)",
-            scale: 1.02,
-          }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="text-green-400 font-bold text-sm mb-1">Final</div>
-          <div className="font-semibold text-white text-sm">
-            Hiring Committee
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Committee reviews all verdicts for a final HIRE/HOLD/REJECT
-            decision.
-          </p>
-        </motion.div>
-      </motion.div>
-
-      {/* Main card */}
-      <motion.div
-        className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-xl border border-white/10 backdrop-blur-sm p-6"
-        variants={itemVariants}
-        whileHover={{
-          borderColor: "rgba(249, 115, 22, 0.3)",
-          boxShadow: "0 0 30px rgba(249, 115, 22, 0.1)",
+      {/* ─── HERO SECTION ─── */}
+      <section
+        style={{
+          position: "relative",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "40px 20px",
         }}
-        transition={{ duration: 0.3 }}
       >
+        {/* Background gradient */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "radial-gradient(ellipse at 50% 30%, #f9731608 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, #fb923c06 0%, transparent 40%)",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Badge */}
         <motion.div
-          className="flex items-center gap-3 mb-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            background: "rgba(249,115,22,0.06)",
+            border: "1px solid rgba(249,115,22,0.15)",
+            borderRadius: 999,
+            padding: "6px 18px",
+            marginBottom: 24,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 12,
+            color: "#f97316",
+            letterSpacing: 2,
+          }}
         >
-          <span className="text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-            Round 1
-          </span>
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "#f97316",
+              boxShadow: "0 0 8px #f97316",
+              animation: "pulse 2s infinite",
+            }}
+          />
+          MULTI-AGENT INTERVIEW SYSTEM
         </motion.div>
-        <motion.h2 className="text-2xl font-bold bg-gradient-to-r from-white via-white to-orange-400 bg-clip-text text-transparent mb-2">
-          Start Your Interview
-        </motion.h2>
-        <motion.p className="text-gray-400 mb-4 text-sm leading-relaxed">
-          Paste your resume below. Our AI interview panel will evaluate your
-          qualifications through a multi-round process.
+
+        {/* Title */}
+        <motion.h1
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.15 }}
+          style={{
+            fontSize: "clamp(36px, 6vw, 72px)",
+            fontWeight: 800,
+            textAlign: "center",
+            lineHeight: 1.1,
+            margin: 0,
+            marginBottom: 16,
+            background: "linear-gradient(135deg, #fff 0%, #f97316 50%, #fb923c 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            letterSpacing: -1,
+          }}
+        >
+          Agent-First
+          <br />
+          Interview Engine
+        </motion.h1>
+
+        {/* Subtitle */}
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.3 }}
+          style={{
+            fontSize: "clamp(14px, 1.5vw, 18px)",
+            color: "rgba(224,232,240,0.6)",
+            textAlign: "center",
+            maxWidth: 600,
+            lineHeight: 1.7,
+            margin: "0 0 40px",
+          }}
+        >
+          Four specialized AI agents conduct a rigorous multi-round interview.
+          Every decision is evidence-based, auditable, and transparent.
         </motion.p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Role Selector */}
-          <motion.div variants={itemVariants}>
-            <label className="block text-sm font-medium text-white mb-2">
-              Select Role
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {roles.map((r) => (
-                <motion.button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  disabled={loading}
-                  className={`p-3 rounded-lg border text-left transition-all ${
-                    role === r
-                      ? "border-orange-500 bg-orange-500/10 ring-1 ring-orange-500"
-                      : "border-white/10 bg-white/5 hover:border-white/20"
-                  }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+        {/* Remotion Player embedded */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.9, delay: 0.45 }}
+          style={{
+            width: "min(90vw, 960px)",
+            aspectRatio: "16/9",
+            borderRadius: 16,
+            overflow: "hidden",
+            border: "1px solid rgba(249,115,22,0.12)",
+            boxShadow:
+              "0 0 60px rgba(249,115,22,0.06), 0 0 120px rgba(251,146,60,0.04), 0 20px 60px rgba(0,0,0,0.5)",
+            position: "relative",
+          }}
+        >
+          {mounted && (
+            <React.Suspense
+              fallback={
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    background: "#05080f",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 14,
+                    color: "#f97316",
+                  }}
                 >
-                  <div className={`font-semibold text-sm ${role === r ? "text-orange-400" : "text-white"}`}>
-                    {r}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {ROLE_DESCRIPTIONS[r] || ""}
-                  </p>
-                </motion.button>
-              ))}
+                  Initializing agents...
+                </div>
+              }
+            >
+              <Player
+                ref={playerRef}
+                component={LazyAgentInterview}
+                durationInFrames={COMPOSITION_DURATION}
+                fps={COMPOSITION_FPS}
+                compositionWidth={1920}
+                compositionHeight={1080}
+                style={{ width: "100%", height: "100%" }}
+                autoPlay
+                loop
+                controls
+                showVolumeControls={false}
+              />
+            </React.Suspense>
+          )}
+        </motion.div>
+
+        {/* CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
+          style={{
+            display: "flex",
+            gap: 16,
+            marginTop: 40,
+            flexWrap: "wrap",
+            justifyContent: "center",
+          }}
+        >
+          <motion.button
+            onClick={() => router.push("/interview")}
+            whileHover={{ scale: 1.03, boxShadow: "0 0 40px rgba(249,115,22,0.3)" }}
+            whileTap={{ scale: 0.98 }}
+            style={{
+              padding: "14px 36px",
+              fontSize: 15,
+              fontWeight: 700,
+              fontFamily: "'Inter', sans-serif",
+              color: "#05080f",
+              background: "linear-gradient(135deg, #f97316, #ea580c)",
+              border: "none",
+              borderRadius: 10,
+              cursor: "pointer",
+              letterSpacing: 1,
+              boxShadow: "0 0 30px rgba(249,115,22,0.15)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            Start Interview
+            <span style={{ fontSize: 18 }}>→</span>
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03, borderColor: "rgba(249,115,22,0.4)" }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() =>
+              document
+                .getElementById("features")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+            style={{
+              padding: "14px 36px",
+              fontSize: 15,
+              fontWeight: 600,
+              fontFamily: "'Inter', sans-serif",
+              color: "#f97316",
+              background: "rgba(249,115,22,0.06)",
+              border: "1px solid rgba(249,115,22,0.2)",
+              borderRadius: 10,
+              cursor: "pointer",
+              letterSpacing: 1,
+            }}
+          >
+            Learn More
+          </motion.button>
+        </motion.div>
+      </section>
+
+      {/* ─── STATS BAR ─── */}
+      <section
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "clamp(20px, 4vw, 60px)",
+          padding: "60px 20px",
+          borderTop: "1px solid rgba(255,255,255,0.05)",
+          borderBottom: "1px solid rgba(255,255,255,0.05)",
+          flexWrap: "wrap",
+        }}
+      >
+        {stats.map((stat, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.1 }}
+            style={{ textAlign: "center", minWidth: 120 }}
+          >
+            <div
+              style={{
+                fontSize: 40,
+                fontWeight: 800,
+                fontFamily: "'JetBrains Mono', monospace",
+                background: "linear-gradient(135deg, #f97316, #fb923c)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              {stat.value}
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "rgba(224,232,240,0.5)",
+                letterSpacing: 2,
+                textTransform: "uppercase",
+                marginTop: 4,
+              }}
+            >
+              {stat.label}
             </div>
           </motion.div>
+        ))}
+      </section>
 
-          <motion.div variants={itemVariants}>
-            <label
-              htmlFor="resume"
-              className="block text-sm font-medium text-white mb-2"
-            >
-              Resume / CV
-            </label>
-            <textarea
-              id="resume"
-              rows={8}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-y backdrop-blur-sm transition-all"
-              placeholder={`Paste your resume here...\n\nExample:\nJohn Doe - Software Engineer | 5 years experience\nSkills: Python, TypeScript, React, PostgreSQL, AWS\n\nExperience:\n- Senior Engineer at TechCorp (2022-present)\n- Software Engineer at StartupXYZ (2019-2022)`}
-              value={resume}
-              onChange={(e) => setResume(e.target.value)}
-              disabled={loading}
-            />
-          </motion.div>
+      {/* ─── FEATURES ─── */}
+      <section
+        id="features"
+        style={{
+          padding: "100px 20px",
+          maxWidth: 1200,
+          margin: "0 auto",
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          style={{ textAlign: "center", marginBottom: 60 }}
+        >
+          <h2
+            style={{
+              fontSize: "clamp(28px, 4vw, 44px)",
+              fontWeight: 800,
+              margin: "0 0 12px",
+              background: "linear-gradient(135deg, #fff, #f97316)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            How It Works
+          </h2>
+          <p
+            style={{
+              fontSize: 16,
+              color: "rgba(224,232,240,0.5)",
+              maxWidth: 500,
+              margin: "0 auto",
+            }}
+          >
+            Each agent specializes in a different dimension of candidate
+            evaluation.
+          </p>
+        </motion.div>
 
-          {error && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 24,
+          }}
+        >
+          {features.map((f, i) => (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400"
+              key={i}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1, duration: 0.5 }}
+              whileHover={{
+                y: -4,
+                borderColor: `${f.color}40`,
+                boxShadow: `0 0 40px ${f.color}10`,
+              }}
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(10,20,40,0.6), rgba(5,8,15,0.8))",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 16,
+                padding: 28,
+                cursor: "default",
+                transition: "border-color 0.3s, box-shadow 0.3s",
+              }}
             >
-              {error}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 16,
+                }}
+              >
+                <span style={{ fontSize: 28 }}>{f.icon}</span>
+                <span
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10,
+                    color: f.color,
+                    border: `1px solid ${f.color}30`,
+                    borderRadius: 4,
+                    padding: "2px 8px",
+                    opacity: 0.7,
+                  }}
+                >
+                  {f.round}
+                </span>
+              </div>
+              <h3
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  margin: "0 0 8px",
+                  color: "#fff",
+                }}
+              >
+                {f.title}
+              </h3>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "rgba(224,232,240,0.5)",
+                  lineHeight: 1.7,
+                  margin: 0,
+                }}
+              >
+                {f.description}
+              </p>
             </motion.div>
-          )}
+          ))}
+        </div>
+      </section>
+
+      {/* ─── HOW THE PIPELINE WORKS ─── */}
+      <section
+        style={{
+          padding: "80px 20px 120px",
+          maxWidth: 800,
+          margin: "0 auto",
+          textAlign: "center",
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "clamp(8px, 2vw, 24px)",
+              marginBottom: 40,
+              flexWrap: "wrap",
+            }}
+          >
+            {["Resume Upload", "→", "AI Screening", "→", "Technical", "→", "Scenario", "→", "Decision"].map(
+              (step, i) => (
+                <span
+                  key={i}
+                  style={{
+                    fontFamily:
+                      step === "→"
+                        ? "system-ui"
+                        : "'JetBrains Mono', monospace",
+                    fontSize: step === "→" ? 16 : 12,
+                    color:
+                      step === "→"
+                        ? "rgba(249,115,22,0.3)"
+                        : i === 0
+                        ? "#f97316"
+                        : i === 4
+                        ? "#fb923c"
+                        : i === 6
+                        ? "#ea580c"
+                        : i === 8
+                        ? "#fbbf24"
+                        : "rgba(224,232,240,0.6)",
+                    padding: step === "→" ? 0 : "6px 14px",
+                    background:
+                      step === "→" ? "none" : "rgba(255,255,255,0.03)",
+                    borderRadius: step === "→" ? 0 : 6,
+                    border:
+                      step === "→" ? "none" : "1px solid rgba(255,255,255,0.06)",
+                    letterSpacing: 1,
+                  }}
+                >
+                  {step}
+                </span>
+              )
+            )}
+          </div>
+
+          <p
+            style={{
+              fontSize: 15,
+              color: "rgba(224,232,240,0.5)",
+              lineHeight: 1.8,
+              maxWidth: 600,
+              margin: "0 auto 40px",
+            }}
+          >
+            Every verdict is written to an auditable file. The hiring committee
+            reviews all evidence before rendering a final, transparent decision.
+          </p>
 
           <motion.button
-            type="submit"
-            disabled={loading || !resume.trim() || !role}
-            className="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 disabled:from-gray-700 disabled:to-gray-800 text-white font-medium text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
+            onClick={() => router.push("/interview")}
+            whileHover={{ scale: 1.03, boxShadow: "0 0 40px rgba(249,115,22,0.3)" }}
+            whileTap={{ scale: 0.98 }}
+            style={{
+              padding: "16px 48px",
+              fontSize: 16,
+              fontWeight: 700,
+              fontFamily: "'Inter', sans-serif",
+              color: "#05080f",
+              background: "linear-gradient(135deg, #f97316, #ea580c)",
+              border: "none",
+              borderRadius: 12,
+              cursor: "pointer",
+              letterSpacing: 1,
+              boxShadow: "0 0 40px rgba(249,115,22,0.15)",
+            }}
           >
-            {loading ? (
-              <>
-                <motion.svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </motion.svg>
-                Running Screening Agent for {role}...
-              </>
-            ) : (
-              "Submit Resume & Begin Interview"
-            )}
+            Start Your Interview →
           </motion.button>
-        </form>
-      </motion.div>
-    </motion.div>
+        </motion.div>
+      </section>
+
+      {/* ─── FOOTER ─── */}
+      <footer
+        style={{
+          borderTop: "1px solid rgba(255,255,255,0.05)",
+          padding: "40px 20px",
+          textAlign: "center",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 12,
+            color: "rgba(224,232,240,0.3)",
+            letterSpacing: 3,
+          }}
+        >
+          AGENT-FIRST INTERVIEW ENGINE
+        </span>
+        <span style={{ fontSize: 11, color: "rgba(224,232,240,0.2)" }}>
+          Decisions from Evidence — Auditable, Transparent, Deterministic
+        </span>
+      </footer>
+
+    </div>
   );
 }

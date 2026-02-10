@@ -54,8 +54,16 @@ export function useFullscreen() {
       }
     };
 
+    const handleVisibilityChange = () => {
+      // If user switches tabs (document hidden) and interview is active, show warning
+      if (document.hidden && sessionStorage.getItem("interview_active") === "true") {
+        setShowWarning(true);
+      }
+    };
+
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // Check initial state
     const currentlyFullscreen = !!(
@@ -72,6 +80,7 @@ export function useFullscreen() {
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [enterFullscreen]);
 

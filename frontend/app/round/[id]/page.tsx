@@ -4,7 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useFullscreen } from "../../hooks/useFullscreen";
+import { useGazeTracking } from "../../hooks/useGazeTracking";
 import FullscreenWarning from "../../components/FullscreenWarning";
+import GazeWarning from "../../components/GazeWarning";
+import WebcamPreview from "../../components/WebcamPreview";
+import { WebcamPixelGrid } from "../../components/ui/webcam-pixel-grid";
 
 const API_BASE = "/api";
 
@@ -51,6 +55,16 @@ export default function RoundPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showWarning, dismissWarning } = useFullscreen();
+  const {
+    showWarning: showGazeWarning,
+    dismissWarning: dismissGazeWarning,
+    isLookingAway,
+    webcamStream,
+    isWebcamReady,
+    webcamError,
+    violationCount,
+    initWebcam,
+  } = useGazeTracking();
 
   const meta = ROUND_META[roundId] || {
     title: `Round ${roundId}`,
@@ -67,6 +81,11 @@ export default function RoundPage() {
       setError("No question found. Please start the interview from the beginning.");
     }
   }, [roundId]);
+
+  // Initialize webcam for proctoring
+  useEffect(() => {
+    initWebcam();
+  }, [initWebcam]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,8 +140,24 @@ export default function RoundPage() {
   const roundNum = parseInt(roundId, 10)
 
   return (
-    <motion.div className="space-y-8" variants={containerVariants} initial="hidden" animate="visible">
+    <motion.div className="relative space-y-8 min-h-screen" variants={containerVariants} initial="hidden" animate="visible">
+      {/* Unique background for Technical (2) & Scenario (3) Rounds */}
+      {(roundId === "2" || roundId === "3") && (
+        <div className="fixed inset-0 z-0">
+          <WebcamPixelGrid
+            stream={webcamStream}
+            gridCols={80}
+            gridRows={60}
+            className="opacity-20 pointer-events-none"
+            gapRatio={0.05}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/90 pointer-events-none" />
+        </div>
+      )}
+
       <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
+      <GazeWarning show={showGazeWarning} onDismiss={dismissGazeWarning} violationCount={violationCount} />
+      <WebcamPreview stream={webcamStream} isLookingAway={isLookingAway} isReady={isWebcamReady} error={webcamError} />
 
       {/* Progress indicator */}
       <motion.div className="flex items-center gap-2 text-sm text-gray-400" variants={itemVariants}>
