@@ -63,15 +63,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#05080f",
-        color: "#e0e8f0",
-        fontFamily: "'Inter', system-ui, sans-serif",
-        overflow: "hidden",
-      }}
-    >
+    <div className="min-h-screen bg-[#05080f] text-[#e0e8f0] overflow-hidden" style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>
       {/* ─── HERO SECTION ─── */}
       <section
         style={{

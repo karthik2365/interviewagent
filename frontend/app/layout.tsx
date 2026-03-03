@@ -1,12 +1,24 @@
 import React from "react"
 import type { Metadata } from 'next'
-import { League_Spartan } from 'next/font/google'
+import { League_Spartan, Inter, JetBrains_Mono } from 'next/font/google'
 
 import './globals.css'
 
 const leagueSpartan = League_Spartan({
   subsets: ['latin'],
   variable: '--font-league-spartan',
+  display: 'swap',
+})
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
   display: 'swap',
 })
 
@@ -22,8 +34,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={leagueSpartan.variable}>
-      <body className="font-sans antialiased bg-black text-white" style={{ fontFamily: 'var(--font-league-spartan), system-ui, sans-serif' }}>
+    <html lang="en" className={`${leagueSpartan.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-sans antialiased bg-black text-white">
         {children}
       </body>
     </html>

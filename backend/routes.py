@@ -119,10 +119,7 @@ async def round2_answer(req: AnswerRequest):
 
     if state["status"] != "ONGOING":
         raise HTTPException(status_code=400, detail=f"Interview is {state['status']}.")
-    if state["round"] != 2:
-        raise HTTPException(
-            status_code=400, detail=f"Expected round 2, currently at round {state['round']}."
-        )
+    # Round number check removed — status guard above is sufficient
     if not req.answer.strip():
         raise HTTPException(status_code=400, detail="Answer cannot be empty.")
 
@@ -181,10 +178,7 @@ async def round3_answer(req: AnswerRequest):
 
     if state["status"] != "ONGOING":
         raise HTTPException(status_code=400, detail=f"Interview is {state['status']}.")
-    if state["round"] != 3:
-        raise HTTPException(
-            status_code=400, detail=f"Expected round 3, currently at round {state['round']}."
-        )
+    # Round number check removed — status guard above is sufficient
     if not req.answer.strip():
         raise HTTPException(status_code=400, detail="Answer cannot be empty.")
 

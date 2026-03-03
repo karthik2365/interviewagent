@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import * as faceapi from "face-api.js";
 
 /**
- * Hook that tracks user's gaze using webcam face detection.
+ * Hook that tracks user's gaze using webcam face detection with face-api.js.
  * Shows a warning when the user looks away from the screen.
  */
 export function useGazeTracking() {
@@ -13,12 +14,33 @@ export function useGazeTracking() {
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
   const [isWebcamReady, setIsWebcamReady] = useState(false);
   const [webcamError, setWebcamError] = useState<string | null>(null);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastFaceDetectedRef = useRef<boolean>(true);
   const lookAwayTimerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const isProcessingRef = useRef<boolean>(false);
+
+  // Load face-api.js models
+  const loadModels = useCallback(async () => {
+    try {
+      const MODEL_URL = "/models";
+
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      ]);
+
+      setModelsLoaded(true);
+      setIsLoadingModels(false);
+    } catch (err) {
+      console.error("Failed to load face-api models:", err);
+      setWebcamError("Failed to load face detection models");
+      setIsLoadingModels(false);
+    }
+  }, []);
 
   // Initialize webcam
   const initWebcam = useCallback(async () => {
@@ -31,7 +53,6 @@ export function useGazeTracking() {
         },
       });
       setWebcamStream(stream);
-      setIsWebcamReady(true);
       setWebcamError(null);
 
       // Store that webcam is active for this session
@@ -39,111 +60,118 @@ export function useGazeTracking() {
     } catch (err: any) {
       console.error("Webcam access error:", err);
       setWebcamError(err.message || "Failed to access webcam");
-      setIsWebcamReady(false);
     }
   }, []);
 
-  // Simple brightness-based face detection heuristic
-  // Detects if there's a face-like region in the center of the frame
-  const detectFacePosition = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return null;
+  // Calculate gaze direction from eye landmarks
+  const calculateGaze = useCallback(
+    (landmarks: faceapi.FaceLandmarks68) => {
+      const leftEye = landmarks.getLeftEye();
+      const rightEye = landmarks.getRightEye();
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return null;
+      // Get eye aspect ratio or pupil position
+      // For simple gaze detection, we'll compare the relative positions
+      // of the eyes to determine if looking left, right, or center
 
-    // Set canvas size to match video
-    canvas.width = video.videoWidth || 320;
-    canvas.height = video.videoHeight || 240;
+      // Calculate average positions
+      const leftEyeCenter = {
+        x: leftEye.reduce((sum, p) => sum + p.x, 0) / leftEye.length,
+        y: leftEye.reduce((sum, p) => sum + p.y, 0) / leftEye.length,
+      };
 
-    // Draw current frame
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const rightEyeCenter = {
+        x: rightEye.reduce((sum, p) => sum + p.x, 0) / rightEye.length,
+        y: rightEye.reduce((sum, p) => sum + p.y, 0) / rightEye.length,
+      };
 
-    // Analyze center region (where face should be)
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const regionSize = Math.min(canvas.width, canvas.height) * 0.4;
+      // Calculate the distance between eyes
+      const eyeDistance = Math.abs(rightEyeCenter.x - leftEyeCenter.x);
 
-    const centerRegion = ctx.getImageData(
-      centerX - regionSize / 2,
-      centerY - regionSize / 2,
-      regionSize,
-      regionSize
-    );
+      // Get the outer and inner points of each eye
+      const leftEyeOuter = leftEye[0]; // Leftmost point
+      const leftEyeInner = leftEye[3]; // Rightmost point
+      const rightEyeInner = rightEye[0]; // Leftmost point
+      const rightEyeOuter = rightEye[3]; // Rightmost point
 
-    // Analyze left edge region
-    const leftRegion = ctx.getImageData(0, 0, canvas.width * 0.2, canvas.height);
+      // Calculate relative positions
+      // If the ratio between inner/outer distances changes, user is looking away
+      const leftRatio = (leftEyeInner.x - leftEyeOuter.x) / eyeDistance;
+      const rightRatio = (rightEyeOuter.x - rightEyeInner.x) / eyeDistance;
 
-    // Analyze right edge region
-    const rightRegion = ctx.getImageData(
-      canvas.width * 0.8,
-      0,
-      canvas.width * 0.2,
-      canvas.height
-    );
+      // Threshold for detecting looking away
+      // When looking straight, both ratios should be roughly equal
+      // When looking left/right, one ratio becomes much smaller
+      const ratioDiff = Math.abs(leftRatio - rightRatio);
 
-    // Calculate average brightness for each region
-    const getBrightness = (imageData: ImageData) => {
-      let sum = 0;
-      for (let i = 0; i < imageData.data.length; i += 4) {
-        sum += (imageData.data[i] + imageData.data[i + 1] + imageData.data[i + 2]) / 3;
+      // Also check vertical position - if eyes are significantly higher or lower
+      const avgEyeY = (leftEyeCenter.y + rightEyeCenter.y) / 2;
+      const face = landmarks.positions;
+      const faceCenterY =
+        face.reduce((sum, p) => sum + p.y, 0) / face.length;
+
+      // If ratio difference is too high, user is looking sideways
+      // If eyes are significantly above/below center, user might be looking up/down
+      const lookingAway = ratioDiff > 0.25 || Math.abs(avgEyeY - faceCenterY) > 15;
+
+      return {
+        lookingAway,
+        leftRatio,
+        rightRatio,
+        ratioDiff,
+      };
+    },
+    []
+  );
+
+  // Detect face and gaze
+  const detectFace = useCallback(async () => {
+    if (
+      !videoRef.current ||
+      !modelsLoaded ||
+      isProcessingRef.current ||
+      !webcamStream
+    ) {
+      return;
+    }
+
+    isProcessingRef.current = true;
+
+    try {
+      const video = videoRef.current;
+
+      // Skip if video is not ready
+      if (video.readyState !== 4) {
+        isProcessingRef.current = false;
+        return;
       }
-      return sum / (imageData.data.length / 4);
-    };
 
-    // Calculate skin-tone detection (simple heuristic)
-    const getSkinTonePresence = (imageData: ImageData) => {
-      let skinPixels = 0;
-      const totalPixels = imageData.data.length / 4;
+      // Detect face with landmarks
+      const detections = await faceapi
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks();
 
-      for (let i = 0; i < imageData.data.length; i += 4) {
-        const r = imageData.data[i];
-        const g = imageData.data[i + 1];
-        const b = imageData.data[i + 2];
+      if (detections) {
+        const landmarks = detections.landmarks;
+        const { lookingAway } = calculateGaze(landmarks);
 
-        // Simple skin tone detection (works for various skin tones)
-        if (r > 60 && g > 40 && b > 20 && r > g && r > b && Math.abs(r - g) > 15) {
-          skinPixels++;
-        }
-      }
+        // Also check if face is centered in frame
+        const nose = landmarks.getNose();
+        const noseX = nose.reduce((sum, p) => sum + p.x, 0) / nose.length;
+        const noseY = nose.reduce((sum, p) => sum + p.y, 0) / nose.length;
 
-      return skinPixels / totalPixels;
-    };
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
 
-    const centerSkinPresence = getSkinTonePresence(centerRegion);
-    const leftBrightness = getBrightness(leftRegion);
-    const rightBrightness = getBrightness(rightRegion);
-    const centerBrightness = getBrightness(centerRegion);
+        // Check if face is too far to the sides or too close/far
+        const isCentered =
+          noseX > videoWidth * 0.3 &&
+          noseX < videoWidth * 0.7 &&
+          noseY > videoHeight * 0.25 &&
+          noseY < videoHeight * 0.75;
 
-    // Face is likely present if there's significant skin-tone pixels in center
-    const facePresent = centerSkinPresence > 0.1;
+        const finalLookingAway = lookingAway || !isCentered;
 
-    // Face is likely looking away if brightness shifts significantly to edges
-    // Relaxed threshold from 1.3 to 1.55 to reduce false positives
-    const lookingLeft = leftBrightness > centerBrightness * 1.55;
-    const lookingRight = rightBrightness > centerBrightness * 1.55;
-
-    return {
-      facePresent,
-      lookingAway: !facePresent || lookingLeft || lookingRight,
-      centerSkinPresence,
-    };
-  }, []);
-
-  // Start face tracking loop
-  const startTracking = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const track = () => {
-      const result = detectFacePosition();
-
-      if (result) {
-        const isAway = result.lookingAway;
-
-        if (isAway && !lastFaceDetectedRef.current) {
-          // Already in "looking away" state
-        } else if (isAway && lastFaceDetectedRef.current) {
+        if (finalLookingAway && lastFaceDetectedRef.current) {
           // Just started looking away - start timer
           lastFaceDetectedRef.current = false;
 
@@ -151,8 +179,7 @@ export function useGazeTracking() {
             clearTimeout(lookAwayTimerRef.current);
           }
 
-          // Wait 3.0 seconds before triggering warning (avoid false positives)
-          // Increased from 1.5s to 3.0s as requested
+          // Wait 2.0 seconds before triggering warning
           lookAwayTimerRef.current = setTimeout(() => {
             if (!lastFaceDetectedRef.current) {
               setIsLookingAway(true);
@@ -163,8 +190,8 @@ export function useGazeTracking() {
                 return newCount;
               });
             }
-          }, 3000);
-        } else if (!isAway) {
+          }, 2000);
+        } else if (!finalLookingAway) {
           // Looking at screen
           lastFaceDetectedRef.current = true;
           setIsLookingAway(false);
@@ -174,33 +201,67 @@ export function useGazeTracking() {
             lookAwayTimerRef.current = null;
           }
         }
-      }
+      } else {
+        // No face detected
+        if (lastFaceDetectedRef.current) {
+          lastFaceDetectedRef.current = false;
 
+          if (lookAwayTimerRef.current) {
+            clearTimeout(lookAwayTimerRef.current);
+          }
+
+          // Wait 2.0 seconds before triggering warning when no face
+          lookAwayTimerRef.current = setTimeout(() => {
+            if (!lastFaceDetectedRef.current) {
+              setIsLookingAway(true);
+              setShowWarning(true);
+              setViolationCount((prev) => {
+                const newCount = prev + 1;
+                sessionStorage.setItem("gaze_violations", String(newCount));
+                return newCount;
+              });
+            }
+          }, 2000);
+        }
+      }
+    } catch (err) {
+      // Silently handle detection errors to avoid console spam
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, [modelsLoaded, webcamStream, calculateGaze]);
+
+  // Start face tracking loop
+  const startTracking = useCallback(() => {
+    if (!videoRef.current || !modelsLoaded) return;
+
+    const track = () => {
+      detectFace();
       animationFrameRef.current = requestAnimationFrame(track);
     };
 
     animationFrameRef.current = requestAnimationFrame(track);
-  }, [detectFacePosition]);
+  }, [modelsLoaded, detectFace]);
 
   // Setup video element when stream is ready
   useEffect(() => {
     if (!webcamStream) return;
 
-    // Create hidden video and canvas elements for processing
+    // Create hidden video element for processing
     const video = document.createElement("video");
     video.srcObject = webcamStream;
     video.autoplay = true;
     video.playsInline = true;
     video.muted = true;
 
-    const canvas = document.createElement("canvas");
-
     videoRef.current = video;
-    canvasRef.current = canvas;
 
     video.onloadedmetadata = () => {
       video.play();
-      startTracking();
+      setIsWebcamReady(true);
+      if (modelsLoaded) {
+        startTracking();
+      }
     };
 
     return () => {
@@ -211,13 +272,12 @@ export function useGazeTracking() {
         clearTimeout(lookAwayTimerRef.current);
       }
     };
-  }, [webcamStream, startTracking]);
+  }, [webcamStream, modelsLoaded, startTracking]);
 
-  // Initialize webcam on mount
+  // Initialize on mount
   useEffect(() => {
-    if (sessionStorage.getItem("interview_active") === "true") {
-      initWebcam();
-    }
+    loadModels();
+    initWebcam();
 
     return () => {
       // Cleanup webcam stream on unmount
@@ -226,6 +286,13 @@ export function useGazeTracking() {
       }
     };
   }, []);
+
+  // Start tracking when models are loaded
+  useEffect(() => {
+    if (modelsLoaded && isWebcamReady && videoRef.current) {
+      startTracking();
+    }
+  }, [modelsLoaded, isWebcamReady, startTracking]);
 
   const dismissWarning = useCallback(() => {
     setShowWarning(false);
@@ -254,5 +321,7 @@ export function useGazeTracking() {
     violationCount,
     initWebcam,
     stopWebcam,
+    isLoadingModels,
+    modelsLoaded,
   };
 }

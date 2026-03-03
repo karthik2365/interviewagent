@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useFullscreen } from "../../hooks/useFullscreen";
-import { useGazeTracking } from "../../hooks/useGazeTracking";
+// Gaze tracking disabled for now — face-api.js causes Node module resolution errors
+// import { useGazeTracking } from "../../hooks/useGazeTracking";
 import FullscreenWarning from "../../components/FullscreenWarning";
-import GazeWarning from "../../components/GazeWarning";
+// import GazeWarning from "../../components/GazeWarning";
 import WebcamPreview from "../../components/WebcamPreview";
 import { WebcamPixelGrid } from "../../components/ui/webcam-pixel-grid";
 
@@ -55,16 +56,11 @@ export default function RoundPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showWarning, dismissWarning } = useFullscreen();
-  const {
-    showWarning: showGazeWarning,
-    dismissWarning: dismissGazeWarning,
-    isLookingAway,
-    webcamStream,
-    isWebcamReady,
-    webcamError,
-    violationCount,
-    initWebcam,
-  } = useGazeTracking();
+
+  // Simple webcam stream (no face-api.js / gaze tracking for now)
+  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
+  const [isWebcamReady, setIsWebcamReady] = useState(false);
+  const [webcamError, setWebcamError] = useState<string | null>(null);
 
   const meta = ROUND_META[roundId] || {
     title: `Round ${roundId}`,
@@ -82,10 +78,24 @@ export default function RoundPage() {
     }
   }, [roundId]);
 
-  // Initialize webcam for proctoring
+  // Initialize webcam (simple getUserMedia, no face detection)
   useEffect(() => {
-    initWebcam();
-  }, [initWebcam]);
+    let cancelled = false;
+    navigator.mediaDevices
+      .getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } })
+      .then((stream) => {
+        if (!cancelled) {
+          setWebcamStream(stream);
+          setIsWebcamReady(true);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setWebcamError(err.message || "Failed to access webcam");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,8 +166,8 @@ export default function RoundPage() {
       )}
 
       <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
-      <GazeWarning show={showGazeWarning} onDismiss={dismissGazeWarning} violationCount={violationCount} />
-      <WebcamPreview stream={webcamStream} isLookingAway={isLookingAway} isReady={isWebcamReady} error={webcamError} />
+      {/* GazeWarning + gaze tracking disabled for now */}
+      <WebcamPreview stream={webcamStream} isLookingAway={false} isReady={isWebcamReady} error={webcamError} />
 
       {/* Progress indicator */}
       <motion.div className="flex items-center gap-2 text-sm text-gray-400" variants={itemVariants}>
