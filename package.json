@@ -2,5 +2,8 @@
   "dependencies": {
     "@studio-freight/react-lenis": "^0.0.47",
     "lenis": "^1.3.17"
+  },
+  "optionalDependencies": {
+    "@pmndrs/assets": "^1.7.0"
   }
 }

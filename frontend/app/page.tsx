@@ -4,6 +4,17 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
+
+const TextExtrusionSection = dynamic(
+  () => import("./components/TextExtrusionSection"),
+  { ssr: false }
+);
+
+const MacbookScrollSection = dynamic(
+  () => import("./components/3d/HeroScrollSection"),
+  { ssr: false }
+);
 
 // Dynamic import for the composition to avoid SSR issues
 const LazyAgentInterview = React.lazy(() =>
@@ -63,218 +74,12 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#05080f] text-[#e0e8f0] overflow-hidden" style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>
-      {/* ─── HERO SECTION ─── */}
-      <section
-        style={{
-          position: "relative",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "40px 20px",
-        }}
-      >
-        {/* Background gradient */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(ellipse at 50% 30%, #f9731608 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, #fb923c06 0%, transparent 40%)",
-            pointerEvents: "none",
-          }}
-        />
+    <div className="min-h-screen bg-[#05080f] text-[#e0e8f0]" style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>
+      {/* ─── SECTION 1: Text Extrusion Video ─── */}
+      <TextExtrusionSection />
 
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            background: "rgba(249,115,22,0.06)",
-            border: "1px solid rgba(249,115,22,0.15)",
-            borderRadius: 999,
-            padding: "6px 18px",
-            marginBottom: 24,
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 12,
-            color: "#f97316",
-            letterSpacing: 2,
-          }}
-        >
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "#f97316",
-              boxShadow: "0 0 8px #f97316",
-              animation: "pulse 2s infinite",
-            }}
-          />
-          MULTI-AGENT INTERVIEW SYSTEM
-        </motion.div>
-
-        {/* Title */}
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.15 }}
-          style={{
-            fontSize: "clamp(36px, 6vw, 72px)",
-            fontWeight: 800,
-            textAlign: "center",
-            lineHeight: 1.1,
-            margin: 0,
-            marginBottom: 16,
-            background: "linear-gradient(135deg, #fff 0%, #f97316 50%, #fb923c 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            letterSpacing: -1,
-          }}
-        >
-          Agent-First
-          <br />
-          Interview Engine
-        </motion.h1>
-
-        {/* Subtitle */}
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.3 }}
-          style={{
-            fontSize: "clamp(14px, 1.5vw, 18px)",
-            color: "rgba(224,232,240,0.6)",
-            textAlign: "center",
-            maxWidth: 600,
-            lineHeight: 1.7,
-            margin: "0 0 40px",
-          }}
-        >
-          Four specialized AI agents conduct a rigorous multi-round interview.
-          Every decision is evidence-based, auditable, and transparent.
-        </motion.p>
-
-        {/* Remotion Player embedded */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.9, delay: 0.45 }}
-          style={{
-            width: "min(90vw, 960px)",
-            aspectRatio: "16/9",
-            borderRadius: 16,
-            overflow: "hidden",
-            border: "1px solid rgba(249,115,22,0.12)",
-            boxShadow:
-              "0 0 60px rgba(249,115,22,0.06), 0 0 120px rgba(251,146,60,0.04), 0 20px 60px rgba(0,0,0,0.5)",
-            position: "relative",
-          }}
-        >
-          {mounted && (
-            <React.Suspense
-              fallback={
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    background: "#05080f",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 14,
-                    color: "#f97316",
-                  }}
-                >
-                  Initializing agents...
-                </div>
-              }
-            >
-              <Player
-                ref={playerRef}
-                component={LazyAgentInterview}
-                durationInFrames={COMPOSITION_DURATION}
-                fps={COMPOSITION_FPS}
-                compositionWidth={1920}
-                compositionHeight={1080}
-                style={{ width: "100%", height: "100%" }}
-                autoPlay
-                loop
-                controls
-                showVolumeControls={false}
-              />
-            </React.Suspense>
-          )}
-        </motion.div>
-
-        {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.7 }}
-          style={{
-            display: "flex",
-            gap: 16,
-            marginTop: 40,
-            flexWrap: "wrap",
-            justifyContent: "center",
-          }}
-        >
-          <motion.button
-            onClick={() => router.push("/interview")}
-            whileHover={{ scale: 1.03, boxShadow: "0 0 40px rgba(249,115,22,0.3)" }}
-            whileTap={{ scale: 0.98 }}
-            style={{
-              padding: "14px 36px",
-              fontSize: 15,
-              fontWeight: 700,
-              fontFamily: "'Inter', sans-serif",
-              color: "#05080f",
-              background: "linear-gradient(135deg, #f97316, #ea580c)",
-              border: "none",
-              borderRadius: 10,
-              cursor: "pointer",
-              letterSpacing: 1,
-              boxShadow: "0 0 30px rgba(249,115,22,0.15)",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            Start Interview
-            <span style={{ fontSize: 18 }}>→</span>
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.03, borderColor: "rgba(249,115,22,0.4)" }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() =>
-              document
-                .getElementById("features")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-            style={{
-              padding: "14px 36px",
-              fontSize: 15,
-              fontWeight: 600,
-              fontFamily: "'Inter', sans-serif",
-              color: "#f97316",
-              background: "rgba(249,115,22,0.06)",
-              border: "1px solid rgba(249,115,22,0.2)",
-              borderRadius: 10,
-              cursor: "pointer",
-              letterSpacing: 1,
-            }}
-          >
-            Learn More
-          </motion.button>
-        </motion.div>
-      </section>
+      {/* ─── SECTION 2: MacBook + Gradient Video ─── */}
+      <MacbookScrollSection />
 
       {/* ─── STATS BAR ─── */}
       <section
