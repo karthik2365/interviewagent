@@ -33,10 +33,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS — allow Next.js frontend
+# CORS — allow Next.js frontend (local + deployed)
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
