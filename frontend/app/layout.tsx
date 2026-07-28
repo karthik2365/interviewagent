@@ -1,14 +1,8 @@
 import React from "react"
-import type { Metadata } from 'next'
-import { League_Spartan, Inter, JetBrains_Mono } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 
 import './globals.css'
-
-const leagueSpartan = League_Spartan({
-  subsets: ['latin'],
-  variable: '--font-league-spartan',
-  display: 'swap',
-})
 
 const inter = Inter({
   subsets: ['latin'],
@@ -23,9 +17,21 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'AI Interview Agent — Multi-Agent Interview Engine',
-  description: 'Four specialized AI agents conduct a rigorous multi-round interview. Every decision is evidence-based, auditable, and transparent.',
-  generator: 'v0.app',
+  title: 'Evalia — Multi-Agent Interview Evaluation System',
+  description: 'Five specialized AI agents evaluate candidates through resume screening, technical interviews, behavioral assessment, and an isolated committee decision. Transparent, auditable, bias-reduced hiring.',
+  keywords: ['AI interview', 'hiring evaluation', 'multi-agent', 'resume screening', 'CrewAI', 'Gemini AI'],
+  authors: [{ name: 'Evalia' }],
+  openGraph: {
+    title: 'Evalia — Multi-Agent Interview Evaluation System',
+    description: 'AI-powered candidate evaluation with 5 specialized agents and transparent, auditable decisions.',
+    type: 'website',
+  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#05080f',
 }
 
 export default function RootLayout({
@@ -34,8 +40,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${leagueSpartan.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-sans antialiased bg-black text-white">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body
+        style={{
+          fontFamily: 'var(--font-inter, var(--font-sans))',
+          minHeight: '100vh',
+        }}
+      >
         {children}
       </body>
     </html>

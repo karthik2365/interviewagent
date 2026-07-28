@@ -1,7 +1,9 @@
 # Environment variables
 .env
 
-
+# SQLite Databases
+*.db
+backend/*.db
 
 # Python cache
 __pycache__/
@@ -15,7 +17,11 @@ venv/
 
 # Verdict files (generated at runtime)
 verdicts/*.txt
+verdicts/*.json
+backend/verdicts/*.txt
+backend/verdicts/*.json
 !verdicts/.gitkeep
+!backend/verdicts/.gitkeep
 
 # IDE
 .vscode/

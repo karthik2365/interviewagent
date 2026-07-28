@@ -2,100 +2,55 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { motion } from "framer-motion";
-import { useFullscreen } from "../../hooks/useFullscreen";
-// Gaze tracking disabled for now — face-api.js causes Node module resolution errors
-// import { useGazeTracking } from "../../hooks/useGazeTracking";
-import FullscreenWarning from "../../components/FullscreenWarning";
-// import GazeWarning from "../../components/GazeWarning";
-import WebcamPreview from "../../components/WebcamPreview";
-import { WebcamPixelGrid } from "../../components/ui/webcam-pixel-grid";
 
 const API_BASE = "/api";
 
-const ROUND_META: Record<string, { title: string; subtitle: string; color: string }> = {
-  '2': {
-    title: 'Technical Interview',
-    subtitle: 'Answer the technical questions below. The AI interviewer will evaluate correctness, depth, and clarity.',
-    color: 'purple',
+const ROUND_META: Record<string, { title: string; subtitle: string; agent: string }> = {
+  "2": {
+    title: "Technical Assessment",
+    subtitle: "Answer the technical questions below. The agent evaluates technical depth, correctness, and reasoning.",
+    agent: "Technical Interview Agent",
   },
-  '3': {
-    title: 'Scenario Interview',
-    subtitle: 'Respond to the production scenario below. Show your decision-making, trade-off analysis, and practical judgment.',
-    color: 'amber',
+  "3": {
+    title: "Behavioral Assessment",
+    subtitle: "Respond using the STAR methodology (Situation, Task, Action, Result) demonstrating leadership, ownership, and teamwork.",
+    agent: "Behavioral Interview Agent",
   },
-}
+};
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.1,
-    },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' as const },
-  },
-}
+const PIPELINE_STAGES = [
+  "1. Screening",
+  "2. Technical",
+  "3. Behavioral",
+  "4. Recommendation",
+  "5. Committee",
+];
 
 export default function RoundPage() {
   const router = useRouter();
   const params = useParams();
   const roundId = params.id as string;
+  const roundNum = parseInt(roundId, 10);
 
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { showWarning, dismissWarning } = useFullscreen();
-
-  // Simple webcam stream (no face-api.js / gaze tracking for now)
-  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
-  const [isWebcamReady, setIsWebcamReady] = useState(false);
-  const [webcamError, setWebcamError] = useState<string | null>(null);
 
   const meta = ROUND_META[roundId] || {
     title: `Round ${roundId}`,
     subtitle: "Answer the question below.",
-    color: "blue",
+    agent: `Agent ${roundId}`,
   };
 
   useEffect(() => {
-    // Load the question from sessionStorage (set by previous round)
     const storedQuestion = sessionStorage.getItem("current_question");
     if (storedQuestion) {
       setQuestion(storedQuestion);
     } else {
-      setError("No question found. Please start the interview from the beginning.");
+      setError("No question found. Please start from the beginning.");
     }
   }, [roundId]);
-
-  // Initialize webcam (simple getUserMedia, no face detection)
-  useEffect(() => {
-    let cancelled = false;
-    navigator.mediaDevices
-      .getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } })
-      .then((stream) => {
-        if (!cancelled) {
-          setWebcamStream(stream);
-          setIsWebcamReady(true);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setWebcamError(err.message || "Failed to access webcam");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,19 +79,17 @@ export default function RoundPage() {
 
       const data = await res.json();
 
-      // Store verdict
-      sessionStorage.setItem(`round${roundId}_verdict`, data.verdict || "");
+      sessionStorage.setItem(`round${roundId}_verdict`, JSON.stringify(data.verdict || {}));
+      sessionStorage.setItem(`round${roundId}_verdict_text`, data.verdict_text || "");
       sessionStorage.setItem(`round${roundId}_decision`, data.decision || "");
 
       if (data.status === "REJECTED") {
         sessionStorage.setItem("rejected_at", roundId);
-        sessionStorage.setItem("rejection_verdict", data.verdict || "");
+        sessionStorage.setItem("rejection_verdict", JSON.stringify(data.verdict || {}));
         router.push("/result");
       } else if (data.status === "COMPLETE") {
-        // All rounds done — go to final decision
         router.push("/result");
       } else if (data.next_round) {
-        // Store next question and navigate
         sessionStorage.setItem("current_question", data.question || "");
         router.push(`/round/${data.next_round}`);
       }
@@ -147,126 +100,105 @@ export default function RoundPage() {
     }
   };
 
-  const roundNum = parseInt(roundId, 10)
-
   return (
-    <motion.div className="relative space-y-8 min-h-screen" variants={containerVariants} initial="hidden" animate="visible">
-      {/* Unique background for Technical (2) & Scenario (3) Rounds */}
-      {(roundId === "2" || roundId === "3") && (
-        <div className="fixed inset-0 z-0">
-          <WebcamPixelGrid
-            stream={webcamStream}
-            gridCols={80}
-            gridRows={60}
-            className="opacity-20 pointer-events-none"
-            gapRatio={0.05}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/90 pointer-events-none" />
-        </div>
-      )}
-
-      <FullscreenWarning show={showWarning} onDismiss={dismissWarning} />
-      {/* GazeWarning + gaze tracking disabled for now */}
-      <WebcamPreview stream={webcamStream} isLookingAway={false} isReady={isWebcamReady} error={webcamError} />
-
-      {/* Progress indicator */}
-      <motion.div className="flex items-center gap-2 text-sm text-gray-400" variants={itemVariants}>
-        {[
-          { n: 1, label: 'Screening' },
-          { n: 2, label: 'Technical' },
-          { n: 3, label: 'Scenario' },
-          { n: 4, label: 'Decision' },
-        ].map((step, idx) => (
-          <motion.span key={step.n} className="flex items-center gap-1" whileHover={{ x: 2 }}>
-            {idx > 0 && <span className="mx-1 text-gray-600">→</span>}
-            <motion.span
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                step.n < roundNum
-                  ? 'bg-gradient-to-br from-green-500 to-green-600 text-white'
-                  : step.n === roundNum
-                    ? 'bg-gradient-to-br from-orange-600 to-orange-700 text-white'
-                    : 'bg-white/10 text-gray-400'
-              }`}
-              whileHover={{ scale: 1.1 }}
+    <div style={{ minHeight: "100vh", background: "var(--color-bg)" }}>
+      <main style={{ maxWidth: 680, margin: "0 auto", padding: "60px 24px" }}>
+        {/* Pipeline stepper */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 32, flexWrap: "wrap", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          {PIPELINE_STAGES.map((s, idx) => (
+            <span
+              key={s}
+              style={{
+                color: idx + 1 === roundNum ? "var(--color-primary)" : idx + 1 < roundNum ? "var(--color-text-heading)" : "var(--color-text-subtle)",
+                fontWeight: idx + 1 === roundNum ? 600 : 400,
+              }}
             >
-              {step.n < roundNum ? '✓' : step.n}
-            </motion.span>
-            <span className={step.n === roundNum ? 'font-medium text-white' : 'text-gray-400'}>
-              {step.label}
+              {s}
             </span>
-          </motion.span>
-        ))}
-      </motion.div>
+          ))}
+        </div>
 
-      {/* Main card */}
-      <motion.div className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-xl border border-white/10 backdrop-blur-sm p-8" variants={itemVariants} whileHover={{ borderColor: 'rgba(249, 115, 22, 0.3)', boxShadow: '0 0 30px rgba(249, 115, 22, 0.1)' }} transition={{ duration: 0.3 }}>
-        <motion.div className="flex items-center gap-3 mb-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-          <span className="text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-            Round {roundId}
-          </span>
-        </motion.div>
-        <motion.h2 className="text-3xl font-bold bg-gradient-to-r from-white via-white to-orange-400 bg-clip-text text-transparent mb-2">
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-primary)", letterSpacing: "0.1em", marginBottom: 8 }}>
+          STAGE {roundId} — {meta.agent.toUpperCase()}
+        </div>
+
+        <h1 style={{ fontSize: 26, fontWeight: 700, color: "var(--color-text-heading)", marginBottom: 8 }}>
           {meta.title}
-        </motion.h2>
-        <motion.p className="text-gray-400 mb-6 text-sm leading-relaxed">
+        </h1>
+        <p style={{ fontSize: 14, color: "var(--color-text-muted)", marginBottom: 24, lineHeight: 1.6 }}>
           {meta.subtitle}
-        </motion.p>
+        </p>
 
         {/* Question display */}
         {question && (
-          <motion.div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-xl px-5 py-4 mb-6 backdrop-blur-sm" variants={itemVariants}>
-            <div className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-2">
-              Interview Question
+          <div
+            className="card-surface"
+            style={{
+              padding: 20,
+              marginBottom: 24,
+              borderColor: "var(--color-border-hover)",
+            }}
+          >
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-primary)", marginBottom: 8, letterSpacing: "0.05em" }}>
+              INTERVIEW QUESTION
             </div>
-            <div className="text-gray-100 text-sm whitespace-pre-wrap leading-relaxed">
+            <div style={{ fontSize: 14, color: "var(--color-text-heading)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
               {question}
             </div>
-          </motion.div>
+          </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <motion.div variants={itemVariants}>
-            <label htmlFor="answer" className="block text-sm font-medium text-white mb-2">
-              Your Answer
+        {/* Answer form */}
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-text-muted)", marginBottom: 6, fontFamily: "var(--font-mono)" }}>
+              CANDIDATE ANSWER
             </label>
             <textarea
-              id="answer"
-              rows={10}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-y backdrop-blur-sm transition-all"
-              placeholder="Type your answer here..."
+              rows={12}
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               disabled={loading}
+              placeholder="Type your response..."
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                fontSize: 13,
+                color: "var(--color-text-heading)",
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 6,
+                outline: "none",
+                resize: "vertical",
+                fontFamily: "inherit",
+                lineHeight: 1.6,
+                minHeight: 200,
+              }}
             />
-          </motion.div>
+          </div>
 
           {error && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+            <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, fontSize: 13, color: "var(--color-error)", marginBottom: 20 }}>
               {error}
-            </motion.div>
+            </div>
           )}
 
-          <motion.button
+          <button
             type="submit"
             disabled={loading || !answer.trim()}
-            className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 disabled:from-gray-700 disabled:to-gray-800 text-white font-medium text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            className="btn-primary"
+            style={{
+              width: "100%",
+              padding: "12px 20px",
+              fontSize: 14,
+              opacity: loading || !answer.trim() ? 0.5 : 1,
+              cursor: loading || !answer.trim() ? "not-allowed" : "pointer",
+            }}
           >
-            {loading ? (
-              <>
-                <motion.svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </motion.svg>
-                Evaluating your response...
-              </>
-            ) : (
-              'Submit Answer'
-            )}
-          </motion.button>
+            {loading ? "Evaluating response with agent..." : "Submit Answer"}
+          </button>
         </form>
-      </motion.div>
-    </motion.div>
-  )
+      </main>
+    </div>
+  );
 }

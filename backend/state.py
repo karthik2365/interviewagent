@@ -5,6 +5,13 @@ This is short-lived, mutable, session-scoped state that tracks
 the current interview progress. In production this would be
 backed by Redis or a session store; in-memory is correct for
 this scope.
+
+The pipeline now has 5 stages:
+  Round 1: Resume Screening
+  Round 2: Technical Interview
+  Round 3: Behavioral Interview
+  Round 4: Hiring Recommendation (auto — no candidate input)
+  Final:   Committee Decision (auto — no candidate input)
 """
 
 import os
@@ -16,19 +23,37 @@ VERDICTS_DIR = os.path.join(os.path.dirname(__file__), "verdicts")
 # Available interview roles
 AVAILABLE_ROLES = [
     "SDE 1",
+    "SDE 2",
+    "Senior Software Engineer",
     "AI Engineer",
+    "ML Engineer",
     "Backend Developer",
+    "Frontend Developer",
+    "Full-Stack Developer",
+    "DevOps Engineer",
+    "Data Scientist",
+]
+
+
+# Pipeline stage definitions
+PIPELINE_STAGES = [
+    {"stage": 1, "name": "Resume Screening", "agent": "Screening Agent", "requires_input": False},
+    {"stage": 2, "name": "Technical Interview", "agent": "Technical Agent", "requires_input": True},
+    {"stage": 3, "name": "Behavioral Interview", "agent": "Behavioral Agent", "requires_input": True},
+    {"stage": 4, "name": "Hiring Recommendation", "agent": "Recommendation Agent", "requires_input": False},
+    {"stage": 5, "name": "Committee Decision", "agent": "Committee Evaluator", "requires_input": False},
 ]
 
 
 def _empty_state() -> dict:
     return {
+        "evaluation_id": None,
         "round": 1,
         "status": "ONGOING",  # ONGOING | REJECTED | COMPLETE
         "resume": "",
         "role": "",
+        "candidate_name": "",
         "answers": {
-            "round1": [],
             "round2": [],
             "round3": [],
         },
@@ -36,9 +61,9 @@ def _empty_state() -> dict:
             "round1": None,
             "round2": None,
             "round3": None,
+            "round4": None,  # Hiring Recommendation
         },
         "questions": {
-            "round1": None,
             "round2": None,
             "round3": None,
         },

@@ -1,375 +1,410 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Player, type PlayerRef } from "@remotion/player";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import dynamic from "next/dynamic";
+import Navbar from "./components/Navbar";
 
-const TextExtrusionSection = dynamic(
-  () => import("./components/TextExtrusionSection"),
-  { ssr: false }
-);
+const AGENTS = [
+  {
+    stage: "STAGE 1",
+    title: "Resume Screening Agent",
+    description: "Parses technical skills, experience depth, and education against target role criteria.",
+    output: "Screening Verdict & Score",
+  },
+  {
+    stage: "STAGE 2",
+    title: "Technical Interview Agent",
+    description: "Evaluates technical depth, algorithmic clarity, and architectural understanding.",
+    output: "Technical Verdict & Score",
+  },
+  {
+    stage: "STAGE 3",
+    title: "Behavioral Interview Agent",
+    description: "Evaluates STAR responses for leadership, ownership, teamwork, and culture fit.",
+    output: "Behavioral Verdict & Score",
+  },
+  {
+    stage: "STAGE 4",
+    title: "Hiring Recommendation Agent",
+    description: "Synthesizes previous round verdicts into a comprehensive hiring recommendation with risk analysis.",
+    output: "Recommendation & Risks",
+  },
+  {
+    stage: "FINAL STAGE",
+    title: "Committee Evaluator",
+    description: "Makes the final HIRE, HOLD, or REJECT decision using only peer agent outputs. Resume is excluded to eliminate bias.",
+    output: "Final Decision & Summary",
+  },
+];
 
-const MacbookScrollSection = dynamic(
-  () => import("./components/3d/HeroScrollSection"),
-  { ssr: false }
-);
+const PIPELINE_STEPS = [
+  "Candidate Resume",
+  "Screening Agent",
+  "Technical Agent",
+  "Behavioral Agent",
+  "Recommendation Agent",
+  "Committee Evaluator",
+  "Final Decision",
+];
 
-// Dynamic import for the composition to avoid SSR issues
-const LazyAgentInterview = React.lazy(() =>
-  import("@/remotion/AgentInterview").then((mod) => ({
-    default: mod.AgentInterview,
-  }))
-);
+const STATS = [
+  { value: "5", label: "Autonomous Agents" },
+  { value: "4", label: "Evaluation Rounds" },
+  { value: "<2m", label: "Processing Time" },
+  { value: "100%", label: "Auditable Rationale" },
+];
 
-const COMPOSITION_FPS = 60;
-const COMPOSITION_DURATION = 1680;
+const TRANSPARENCY_ITEMS = [
+  { title: "Explicit Reasoning", text: "Every agent details the exact evidence and rationale behind its evaluation." },
+  { title: "Evidence Tracking", text: "Scores are backed by candidate statements and resume claims." },
+  { title: "Confidence Scoring", text: "All evaluations include a calibrated confidence score (0 to 1)." },
+  { title: "Multi-Dimension Rubric", text: "Evaluated on technical, behavioral, and architectural competency." },
+];
+
+const FAQ_ITEMS = [
+  {
+    q: "How does the committee evaluator eliminate bias?",
+    a: "The Committee Evaluator does not receive the candidate's resume or raw personal details. It reviews only the structured evaluation outputs from peer agents, ensuring the decision evaluates the interview evidence alone.",
+  },
+  {
+    q: "What architecture powers the system?",
+    a: "Evalia runs 5 specialized CrewAI agents powered by Gemini 2.5. Each agent enforces a validated Pydantic JSON schema with SQLite persistence for all verdicts.",
+  },
+  {
+    q: "What roles can be evaluated?",
+    a: "Evalia supports 10 engineering roles including SDE 1, SDE 2, Senior Engineer, AI Engineer, ML Engineer, Backend, Frontend, Full-Stack, DevOps, and Data Scientist.",
+  },
+  {
+    q: "Can evaluations be exported or reviewed?",
+    a: "Yes. Every evaluation generates a structured report with executive summaries, risk breakdowns, per-agent verdicts, and score details accessible via the dashboard.",
+  },
+];
+
+const CONTEXT_MATRIX = [
+  { agent: "Screening Agent", resume: true, r1: false, r2: false, r3: false, r4: false },
+  { agent: "Technical Agent", resume: true, r1: true, r2: false, r3: false, r4: false },
+  { agent: "Behavioral Agent", resume: true, r1: true, r2: true, r3: false, r4: false },
+  { agent: "Recommendation Agent", resume: false, r1: true, r2: true, r3: true, r4: false },
+  { agent: "Committee Evaluator", resume: false, r1: true, r2: true, r3: true, r4: true },
+];
+
+function FAQAccordion({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="card-surface"
+      style={{
+        padding: "16px 20px",
+        cursor: "pointer",
+      }}
+      onClick={() => setOpen(!open)}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text-heading)" }}>{q}</span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--color-text-subtle)", marginLeft: 16 }}>
+          {open ? "[ - ]" : "[ + ]"}
+        </span>
+      </div>
+      {open && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--color-border)", fontSize: 13, color: "var(--color-text-muted)", lineHeight: 1.7 }}>
+          {a}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function LandingPage() {
   const router = useRouter();
-  const playerRef = useRef<PlayerRef>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const features = [
-    {
-      icon: "🔍",
-      title: "AI Resume Screening",
-      description: "Intelligent ATS agent evaluates role fit, skills alignment, and experience depth in seconds.",
-      color: "#f97316",
-      round: "Round 1",
-    },
-    {
-      icon: "⚙️",
-      title: "Technical Deep-Dive",
-      description: "Specialized technical agent probes system design, coding ability, and architectural thinking.",
-      color: "#fb923c",
-      round: "Round 2",
-    },
-    {
-      icon: "🌐",
-      title: "Scenario Assessment",
-      description: "Real-world production scenarios test decision-making under pressure and incident response.",
-      color: "#ea580c",
-      round: "Round 3",
-    },
-    {
-      icon: "⚖️",
-      title: "Hiring Committee",
-      description: "Multi-agent deliberation synthesizes all evidence into a transparent, auditable final decision.",
-      color: "#fbbf24",
-      round: "Final",
-    },
-  ];
-
-  const stats = [
-    { value: "4", label: "AI Agents" },
-    { value: "3", label: "Interview Rounds" },
-    { value: "<2m", label: "Total Time" },
-    { value: "100%", label: "Auditable" },
-  ];
 
   return (
-    <div className="min-h-screen bg-[#05080f] text-[#e0e8f0]" style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>
-      {/* ─── SECTION 1: Text Extrusion Video ─── */}
-      <TextExtrusionSection />
+    <div style={{ minHeight: "100vh", background: "var(--color-bg)" }}>
+      <Navbar />
 
-      {/* ─── SECTION 2: MacBook + Gradient Video ─── */}
-      <MacbookScrollSection />
+      {/* Hero Section */}
+      <section style={{ padding: "120px 24px 70px", maxWidth: "var(--max-width)", margin: "0 auto", textAlign: "center" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-primary)", letterSpacing: "0.1em", marginBottom: 16 }}>
+          MULTI-AGENT INTERVIEW EVALUATION SYSTEM
+        </div>
 
-      {/* ─── STATS BAR ─── */}
-      <section
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: "clamp(20px, 4vw, 60px)",
-          padding: "60px 20px",
-          borderTop: "1px solid rgba(255,255,255,0.05)",
-          borderBottom: "1px solid rgba(255,255,255,0.05)",
-          flexWrap: "wrap",
-        }}
-      >
-        {stats.map((stat, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.1 }}
-            style={{ textAlign: "center", minWidth: 120 }}
-          >
-            <div
-              style={{
-                fontSize: 40,
-                fontWeight: 800,
-                fontFamily: "'JetBrains Mono', monospace",
-                background: "linear-gradient(135deg, #f97316, #fb923c)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              {stat.value}
+        <h1
+          style={{
+            fontSize: "clamp(32px, 5vw, 56px)",
+            fontWeight: 800,
+            lineHeight: 1.1,
+            letterSpacing: "-0.03em",
+            color: "var(--color-text-heading)",
+            marginBottom: 20,
+            maxWidth: 800,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          Multi-agent candidate evaluation with auditability and bias isolation
+        </h1>
+
+        <p
+          style={{
+            fontSize: 16,
+            color: "var(--color-text-muted)",
+            maxWidth: 600,
+            margin: "0 auto 32px",
+            lineHeight: 1.7,
+          }}
+        >
+          Five specialized AI agents conduct resume screening, technical testing, behavioral assessment, and independent committee deliberation.
+        </p>
+
+        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+          <button className="btn-primary" onClick={() => router.push("/interview")}>
+            Start Evaluation
+          </button>
+          <button className="btn-secondary" onClick={() => router.push("/dashboard")}>
+            Open Dashboard
+          </button>
+        </div>
+
+        {/* Hero Card Preview */}
+        <div
+          className="card-surface"
+          style={{
+            marginTop: 56,
+            padding: 24,
+            textAlign: "left",
+            maxWidth: 680,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-text-subtle)", letterSpacing: "0.05em" }}>
+                SAMPLE EVALUATION #1042
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "var(--color-text-heading)", marginTop: 2 }}>
+                Senior Software Engineer — AI Systems
+              </div>
             </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: "rgba(224,232,240,0.5)",
-                letterSpacing: 2,
-                textTransform: "uppercase",
-                marginTop: 4,
-              }}
-            >
-              {stat.label}
+            <span className="status-tag status-tag-success">HIRE</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, borderTop: "1px solid var(--color-border)", paddingTop: 16 }}>
+            {[
+              { stage: "Screening", score: "8.5/10" },
+              { stage: "Technical", score: "8.0/10" },
+              { stage: "Behavioral", score: "8.2/10" },
+              { stage: "Overall", score: "8.2/10" },
+            ].map((s) => (
+              <div key={s.stage}>
+                <div style={{ fontSize: 11, color: "var(--color-text-subtle)" }}>{s.stage}</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 600, color: "var(--color-text-heading)", marginTop: 4 }}>
+                  {s.score}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* Stats Bar */}
+      <section style={{ padding: "40px 24px", maxWidth: "var(--max-width)", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, textAlign: "center" }}>
+        {STATS.map((s) => (
+          <div key={s.label}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 700, color: "var(--color-primary)" }}>
+              {s.value}
             </div>
-          </motion.div>
+            <div style={{ fontSize: 12, color: "var(--color-text-subtle)", marginTop: 4 }}>
+              {s.label}
+            </div>
+          </div>
         ))}
       </section>
 
-      {/* ─── FEATURES ─── */}
-      <section
-        id="features"
-        style={{
-          padding: "100px 20px",
-          maxWidth: 1200,
-          margin: "0 auto",
-        }}
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          style={{ textAlign: "center", marginBottom: 60 }}
-        >
-          <h2
-            style={{
-              fontSize: "clamp(28px, 4vw, 44px)",
-              fontWeight: 800,
-              margin: "0 0 12px",
-              background: "linear-gradient(135deg, #fff, #f97316)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            How It Works
-          </h2>
-          <p
-            style={{
-              fontSize: 16,
-              color: "rgba(224,232,240,0.5)",
-              maxWidth: 500,
-              margin: "0 auto",
-            }}
-          >
-            Each agent specializes in a different dimension of candidate
-            evaluation.
-          </p>
-        </motion.div>
+      <div className="section-divider" />
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 24,
-          }}
-        >
-          {features.map((f, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1, duration: 0.5 }}
-              whileHover={{
-                y: -4,
-                borderColor: `${f.color}40`,
-                boxShadow: `0 0 40px ${f.color}10`,
-              }}
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(10,20,40,0.6), rgba(5,8,15,0.8))",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 16,
-                padding: 28,
-                cursor: "default",
-                transition: "border-color 0.3s, box-shadow 0.3s",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 16,
-                }}
-              >
-                <span style={{ fontSize: 28 }}>{f.icon}</span>
-                <span
-                  style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 10,
-                    color: f.color,
-                    border: `1px solid ${f.color}30`,
-                    borderRadius: 4,
-                    padding: "2px 8px",
-                    opacity: 0.7,
-                  }}
-                >
-                  {f.round}
+      {/* Agents Architecture */}
+      <section className="section-container">
+        <div style={{ marginBottom: 40, textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-primary)", letterSpacing: "0.1em", marginBottom: 8 }}>
+            ARCHITECTURE
+          </div>
+          <h2 style={{ fontSize: 28, fontWeight: 700, color: "var(--color-text-heading)" }}>
+            Five Autonomous Agents
+          </h2>
+          <p style={{ fontSize: 14, color: "var(--color-text-muted)", marginTop: 6 }}>
+            Each agent handles a distinct evaluation domain with isolated context boundaries.
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+          {AGENTS.map((agent) => (
+            <div key={agent.title} className="card-surface" style={{ padding: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-primary)" }}>
+                  {agent.stage}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--color-text-subtle)", fontFamily: "var(--font-mono)" }}>
+                  {agent.output}
                 </span>
               </div>
-              <h3
-                style={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  margin: "0 0 8px",
-                  color: "#fff",
-                }}
-              >
-                {f.title}
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-heading)", marginBottom: 6 }}>
+                {agent.title}
               </h3>
-              <p
-                style={{
-                  fontSize: 13,
-                  color: "rgba(224,232,240,0.5)",
-                  lineHeight: 1.7,
-                  margin: 0,
-                }}
-              >
-                {f.description}
+              <p style={{ fontSize: 13, color: "var(--color-text-muted)", lineHeight: 1.6 }}>
+                {agent.description}
               </p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </section>
 
-      {/* ─── HOW THE PIPELINE WORKS ─── */}
-      <section
-        style={{
-          padding: "80px 20px 120px",
-          maxWidth: 800,
-          margin: "0 auto",
-          textAlign: "center",
-        }}
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "clamp(8px, 2vw, 24px)",
-              marginBottom: 40,
-              flexWrap: "wrap",
-            }}
-          >
-            {["Resume Upload", "→", "AI Screening", "→", "Technical", "→", "Scenario", "→", "Decision"].map(
-              (step, i) => (
-                <span
-                  key={i}
-                  style={{
-                    fontFamily:
-                      step === "→"
-                        ? "system-ui"
-                        : "'JetBrains Mono', monospace",
-                    fontSize: step === "→" ? 16 : 12,
-                    color:
-                      step === "→"
-                        ? "rgba(249,115,22,0.3)"
-                        : i === 0
-                        ? "#f97316"
-                        : i === 4
-                        ? "#fb923c"
-                        : i === 6
-                        ? "#ea580c"
-                        : i === 8
-                        ? "#fbbf24"
-                        : "rgba(224,232,240,0.6)",
-                    padding: step === "→" ? 0 : "6px 14px",
-                    background:
-                      step === "→" ? "none" : "rgba(255,255,255,0.03)",
-                    borderRadius: step === "→" ? 0 : 6,
-                    border:
-                      step === "→" ? "none" : "1px solid rgba(255,255,255,0.06)",
-                    letterSpacing: 1,
-                  }}
-                >
-                  {step}
-                </span>
-              )
-            )}
+      <div className="section-divider" />
+
+      {/* Pipeline Stepper */}
+      <section className="section-container">
+        <div style={{ marginBottom: 32, textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-primary)", letterSpacing: "0.1em", marginBottom: 8 }}>
+            PIPELINE FLOW
           </div>
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: "var(--color-text-heading)" }}>
+            Sequential Agent Pipeline
+          </h2>
+        </div>
 
-          <p
-            style={{
-              fontSize: 15,
-              color: "rgba(224,232,240,0.5)",
-              lineHeight: 1.8,
-              maxWidth: 600,
-              margin: "0 auto 40px",
-            }}
-          >
-            Every verdict is written to an auditable file. The hiring committee
-            reviews all evidence before rendering a final, transparent decision.
-          </p>
-
-          <motion.button
-            onClick={() => router.push("/interview")}
-            whileHover={{ scale: 1.03, boxShadow: "0 0 40px rgba(249,115,22,0.3)" }}
-            whileTap={{ scale: 0.98 }}
-            style={{
-              padding: "16px 48px",
-              fontSize: 16,
-              fontWeight: 700,
-              fontFamily: "'Inter', sans-serif",
-              color: "#05080f",
-              background: "linear-gradient(135deg, #f97316, #ea580c)",
-              border: "none",
-              borderRadius: 12,
-              cursor: "pointer",
-              letterSpacing: 1,
-              boxShadow: "0 0 40px rgba(249,115,22,0.15)",
-            }}
-          >
-            Start Your Interview →
-          </motion.button>
-        </motion.div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", alignItems: "center" }}>
+          {PIPELINE_STEPS.map((step, idx) => (
+            <React.Fragment key={step}>
+              {idx > 0 && <span style={{ color: "var(--color-border)", fontSize: 12 }}>→</span>}
+              <div
+                style={{
+                  padding: "8px 14px",
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 6,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  color: idx === PIPELINE_STEPS.length - 1 ? "var(--color-primary)" : "var(--color-text)",
+                }}
+              >
+                {step}
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
       </section>
 
-      {/* ─── FOOTER ─── */}
-      <footer
-        style={{
-          borderTop: "1px solid rgba(255,255,255,0.05)",
-          padding: "40px 20px",
-          textAlign: "center",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 12,
-            color: "rgba(224,232,240,0.3)",
-            letterSpacing: 3,
-          }}
-        >
-          AGENT-FIRST INTERVIEW ENGINE
-        </span>
-        <span style={{ fontSize: 11, color: "rgba(224,232,240,0.2)" }}>
-          Decisions from Evidence — Auditable, Transparent, Deterministic
-        </span>
-      </footer>
+      <div className="section-divider" />
 
+      {/* Context Isolation Matrix */}
+      <section className="section-container">
+        <div style={{ marginBottom: 32, textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-primary)", letterSpacing: "0.1em", marginBottom: 8 }}>
+            BIAS ISOLATION
+          </div>
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: "var(--color-text-heading)" }}>
+            Context Isolation Matrix
+          </h2>
+          <p style={{ fontSize: 14, color: "var(--color-text-muted)", marginTop: 6 }}>
+            The Committee Evaluator receives peer agent evaluation output only — no resume access.
+          </p>
+        </div>
+
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "var(--font-mono)" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--color-border)", textAlign: "left" }}>
+                <th style={{ padding: "10px 16px", color: "var(--color-text-subtle)", fontSize: 11 }}>AGENT</th>
+                <th style={{ padding: "10px 16px", color: "var(--color-text-subtle)", fontSize: 11, textAlign: "center" }}>RESUME</th>
+                <th style={{ padding: "10px 16px", color: "var(--color-text-subtle)", fontSize: 11, textAlign: "center" }}>ROUND 1</th>
+                <th style={{ padding: "10px 16px", color: "var(--color-text-subtle)", fontSize: 11, textAlign: "center" }}>ROUND 2</th>
+                <th style={{ padding: "10px 16px", color: "var(--color-text-subtle)", fontSize: 11, textAlign: "center" }}>ROUND 3</th>
+                <th style={{ padding: "10px 16px", color: "var(--color-text-subtle)", fontSize: 11, textAlign: "center" }}>ROUND 4</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CONTEXT_MATRIX.map((row) => (
+                <tr key={row.agent} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                  <td style={{ padding: "12px 16px", color: "var(--color-text-heading)", fontWeight: 500 }}>{row.agent}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "center", color: row.resume ? "var(--color-success)" : "var(--color-text-subtle)" }}>{row.resume ? "YES" : "NO"}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "center", color: row.r1 ? "var(--color-success)" : "var(--color-text-subtle)" }}>{row.r1 ? "YES" : "NO"}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "center", color: row.r2 ? "var(--color-success)" : "var(--color-text-subtle)" }}>{row.r2 ? "YES" : "NO"}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "center", color: row.r3 ? "var(--color-success)" : "var(--color-text-subtle)" }}>{row.r3 ? "YES" : "NO"}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "center", color: row.r4 ? "var(--color-success)" : "var(--color-text-subtle)" }}>{row.r4 ? "YES" : "NO"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* Transparency */}
+      <section className="section-container">
+        <div style={{ marginBottom: 32, textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-primary)", letterSpacing: "0.1em", marginBottom: 8 }}>
+            AUDITABILITY
+          </div>
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: "var(--color-text-heading)" }}>
+            Evaluation Rigor & Transparency
+          </h2>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+          {TRANSPARENCY_ITEMS.map((item) => (
+            <div key={item.title} className="card-surface" style={{ padding: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-heading)", marginBottom: 6 }}>
+                {item.title}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--color-text-muted)", lineHeight: 1.6 }}>
+                {item.text}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* FAQ */}
+      <section className="section-container" style={{ maxWidth: 720 }}>
+        <div style={{ marginBottom: 32, textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-primary)", letterSpacing: "0.1em", marginBottom: 8 }}>
+            FREQUENTLY ASKED QUESTIONS
+          </div>
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: "var(--color-text-heading)" }}>
+            Common Questions
+          </h2>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {FAQ_ITEMS.map((faq) => (
+            <FAQAccordion key={faq.q} q={faq.q} a={faq.a} />
+          ))}
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* CTA */}
+      <section style={{ padding: "80px 24px", textAlign: "center", maxWidth: 600, margin: "0 auto" }}>
+        <h2 style={{ fontSize: 28, fontWeight: 700, color: "var(--color-text-heading)", marginBottom: 12 }}>
+          Ready to run an evaluation?
+        </h2>
+        <p style={{ fontSize: 14, color: "var(--color-text-muted)", marginBottom: 24 }}>
+          Upload a candidate resume and evaluate across all 5 autonomous agent rounds.
+        </p>
+        <button className="btn-primary" onClick={() => router.push("/interview")}>
+          Start Evaluation
+        </button>
+      </section>
+
+      {/* Footer */}
+      <footer style={{ borderTop: "1px solid var(--color-border)", padding: "32px 24px", textAlign: "center", fontSize: 12, color: "var(--color-text-subtle)", fontFamily: "var(--font-mono)" }}>
+        EVALIA SYSTEM — MULTI-AGENT INTERVIEW PIPELINE
+      </footer>
     </div>
   );
 }

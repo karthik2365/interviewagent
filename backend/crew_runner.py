@@ -3,10 +3,13 @@ Crew Runner — Orchestrates agent execution with explicit context passing.
 
 This is the heart of the AGENT CONTEXT architecture. Each agent receives
 only the context it is explicitly given. No hidden state, no shared memory.
+
+Pipeline: Screening → Technical → Behavioral → Hiring Recommendation → Committee
 """
 
 import os
 import re
+import json
 import time
 import logging
 from crewai import Crew
@@ -36,21 +39,25 @@ def _run_crew_with_retry(crew: Crew) -> str:
                     continue
             raise
 
+
 from agents import (
     create_screening_agent,
     create_technical_agent,
-    create_scenario_agent,
+    create_behavioral_agent,
+    create_hiring_recommendation_agent,
     create_hiring_committee_agent,
 )
 from tasks import (
     create_screening_task,
     create_technical_question_task,
     create_technical_evaluation_task,
-    create_scenario_question_task,
-    create_scenario_evaluation_task,
-    create_hiring_decision_task,
+    create_behavioral_question_task,
+    create_behavioral_evaluation_task,
+    create_hiring_recommendation_task,
+    create_committee_decision_task,
 )
 from state import VERDICTS_DIR
+
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
@@ -73,24 +80,82 @@ def _write_verdict(filename: str, content: str) -> str:
     return path
 
 
+def _parse_json_output(raw_text: str) -> dict:
+    """
+    Parse JSON from agent output. Handles common LLM quirks:
+    - Markdown code blocks (```json ... ```)
+    - Leading/trailing whitespace
+    - Mixed content before/after JSON
+    """
+    text = raw_text.strip()
+
+    # Try to extract from markdown code block
+    json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
+    if json_match:
+        text = json_match.group(1).strip()
+
+    # Try to find JSON object boundaries
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        text = text[start : end + 1]
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        logger.warning(f"Failed to parse JSON output: {e}")
+        logger.debug(f"Raw output: {raw_text[:500]}")
+        # Return a minimal fallback
+        return {"error": "Failed to parse agent output", "raw": raw_text[:2000]}
+
+
 def _parse_decision(verdict_text: str) -> str:
     """
-    Extract the decision (PASS/FAIL/BORDERLINE/HIRE/HOLD/REJECT)
-    from a verdict string.
+    Extract the decision from a verdict string (JSON or plain text).
     """
+    # Try JSON first
+    try:
+        data = json.loads(verdict_text) if isinstance(verdict_text, str) else verdict_text
+        if isinstance(data, dict) and "decision" in data:
+            return data["decision"].upper()
+    except (json.JSONDecodeError, AttributeError):
+        pass
+
+    # Fallback — regex
     match = re.search(
         r"Decision:\s*(PASS|FAIL|BORDERLINE|HIRE|HOLD|REJECT)",
-        verdict_text,
+        str(verdict_text),
         re.IGNORECASE,
     )
     if match:
         return match.group(1).upper()
-    # Fallback — look for keywords anywhere
-    upper = verdict_text.upper()
+
+    # Last resort — keyword search
+    upper = str(verdict_text).upper()
     for keyword in ["FAIL", "REJECT", "BORDERLINE", "HOLD", "PASS", "HIRE"]:
         if keyword in upper:
             return keyword
     return "BORDERLINE"
+
+
+def _extract_score(data: dict) -> float:
+    """Extract score from parsed verdict data."""
+    if isinstance(data, dict) and "score" in data:
+        try:
+            return float(data["score"])
+        except (ValueError, TypeError):
+            pass
+    return 0.0
+
+
+def _extract_confidence(data: dict) -> float:
+    """Extract confidence from parsed verdict data."""
+    if isinstance(data, dict) and "confidence" in data:
+        try:
+            return float(data["confidence"])
+        except (ValueError, TypeError):
+            pass
+    return 0.8
 
 
 # ── Round 1: Screening ──────────────────────────────────────────────
@@ -106,17 +171,25 @@ def run_screening(resume: str, role: str) -> dict:
     task = create_screening_task(agent, resume, role)
 
     crew = Crew(agents=[agent], tasks=[task], verbose=True)
-    verdict_text = _run_crew_with_retry(crew)
+    raw_output = _run_crew_with_retry(crew)
 
-    # Write to DECISION MEMORY
-    _write_verdict("round1.txt", verdict_text)
+    # Parse structured output
+    verdict_data = _parse_json_output(raw_output)
+    decision = _parse_decision(verdict_data)
+    score = _extract_score(verdict_data)
+    confidence = _extract_confidence(verdict_data)
 
-    decision = _parse_decision(verdict_text)
+    # Write to DECISION MEMORY (both JSON and raw)
+    _write_verdict("round1.txt", raw_output)
+    _write_verdict("round1.json", json.dumps(verdict_data, indent=2))
 
     return {
         "round": 1,
         "decision": decision,
-        "verdict": verdict_text,
+        "verdict": verdict_data,
+        "verdict_text": raw_output,
+        "score": score,
+        "confidence": confidence,
     }
 
 
@@ -154,31 +227,38 @@ def run_technical_evaluation(resume: str, questions: str, answer: str) -> dict:
     )
 
     crew = Crew(agents=[agent], tasks=[task], verbose=True)
-    verdict_text = _run_crew_with_retry(crew)
+    raw_output = _run_crew_with_retry(crew)
 
-    _write_verdict("round2.txt", verdict_text)
+    verdict_data = _parse_json_output(raw_output)
+    decision = _parse_decision(verdict_data)
+    score = _extract_score(verdict_data)
+    confidence = _extract_confidence(verdict_data)
 
-    decision = _parse_decision(verdict_text)
+    _write_verdict("round2.txt", raw_output)
+    _write_verdict("round2.json", json.dumps(verdict_data, indent=2))
 
     return {
         "round": 2,
         "decision": decision,
-        "verdict": verdict_text,
+        "verdict": verdict_data,
+        "verdict_text": raw_output,
+        "score": score,
+        "confidence": confidence,
     }
 
 
-# ── Round 3: Scenario (Question Generation) ─────────────────────────
+# ── Round 3: Behavioral (Question Generation) ──────────────────────
 
 
-def run_scenario_question(resume: str) -> dict:
+def run_behavioral_question(resume: str) -> dict:
     """
-    Generate scenario question.
+    Generate behavioral question.
     AGENT CONTEXT: Resume + round1.txt + round2.txt.
     """
     round1_verdict = _read_verdict("round1.txt")
     round2_verdict = _read_verdict("round2.txt")
-    agent = create_scenario_agent()
-    task = create_scenario_question_task(
+    agent = create_behavioral_agent()
+    task = create_behavioral_question_task(
         agent, resume, round1_verdict, round2_verdict
     )
 
@@ -191,57 +271,111 @@ def run_scenario_question(resume: str) -> dict:
     }
 
 
-def run_scenario_evaluation(resume: str, question: str, answer: str) -> dict:
+def run_behavioral_evaluation(resume: str, question: str, answer: str) -> dict:
     """
-    Evaluate scenario answer.
+    Evaluate behavioral answer.
     AGENT CONTEXT: Resume + round1.txt + round2.txt + candidate answer.
     Writes: verdicts/round3.txt
     """
     round1_verdict = _read_verdict("round1.txt")
     round2_verdict = _read_verdict("round2.txt")
-    agent = create_scenario_agent()
-    task = create_scenario_evaluation_task(
+    agent = create_behavioral_agent()
+    task = create_behavioral_evaluation_task(
         agent, resume, round1_verdict, round2_verdict, question, answer
     )
 
     crew = Crew(agents=[agent], tasks=[task], verbose=True)
-    verdict_text = _run_crew_with_retry(crew)
+    raw_output = _run_crew_with_retry(crew)
 
-    _write_verdict("round3.txt", verdict_text)
+    verdict_data = _parse_json_output(raw_output)
+    decision = _parse_decision(verdict_data)
+    score = _extract_score(verdict_data)
+    confidence = _extract_confidence(verdict_data)
 
-    decision = _parse_decision(verdict_text)
+    _write_verdict("round3.txt", raw_output)
+    _write_verdict("round3.json", json.dumps(verdict_data, indent=2))
 
     return {
         "round": 3,
         "decision": decision,
-        "verdict": verdict_text,
+        "verdict": verdict_data,
+        "verdict_text": raw_output,
+        "score": score,
+        "confidence": confidence,
     }
 
 
-# ── Final: Hiring Committee ─────────────────────────────────────────
+# ── Round 4: Hiring Recommendation ─────────────────────────────────
 
 
-def run_hiring_committee() -> dict:
+def run_hiring_recommendation() -> dict:
     """
-    Run the Hiring Committee Agent.
-    AGENT CONTEXT: ONLY verdict files (no resume, no raw answers).
-    This is a critical design choice — the committee judges on peer verdicts.
+    Run the Hiring Recommendation Agent.
+    AGENT CONTEXT: All three round verdicts (no resume, no raw answers).
+    Writes: verdicts/round4.txt
     """
     round1_verdict = _read_verdict("round1.txt")
     round2_verdict = _read_verdict("round2.txt")
     round3_verdict = _read_verdict("round3.txt")
 
-    agent = create_hiring_committee_agent()
-    task = create_hiring_decision_task(
+    agent = create_hiring_recommendation_agent()
+    task = create_hiring_recommendation_task(
         agent, round1_verdict, round2_verdict, round3_verdict
     )
 
     crew = Crew(agents=[agent], tasks=[task], verbose=True)
-    decision_text = _run_crew_with_retry(crew)
+    raw_output = _run_crew_with_retry(crew)
 
-    decision = _parse_decision(decision_text)
+    verdict_data = _parse_json_output(raw_output)
+    decision = _parse_decision(verdict_data)
+    score = _extract_score(verdict_data)
+    confidence = _extract_confidence(verdict_data)
+
+    _write_verdict("round4.txt", raw_output)
+    _write_verdict("round4.json", json.dumps(verdict_data, indent=2))
+
+    return {
+        "round": 4,
+        "decision": decision,
+        "verdict": verdict_data,
+        "verdict_text": raw_output,
+        "score": score,
+        "confidence": confidence,
+    }
+
+
+# ── Final: Committee Evaluator ──────────────────────────────────────
+
+
+def run_hiring_committee() -> dict:
+    """
+    Run the Hiring Committee Agent (Committee Evaluator).
+    AGENT CONTEXT: ONLY verdict outputs from all agents (no resume, no raw answers).
+    This is a critical design choice — the committee judges on peer verdicts only.
+    """
+    round1_verdict = _read_verdict("round1.txt")
+    round2_verdict = _read_verdict("round2.txt")
+    round3_verdict = _read_verdict("round3.txt")
+    recommendation = _read_verdict("round4.txt")
+
+    agent = create_hiring_committee_agent()
+    task = create_committee_decision_task(
+        agent, round1_verdict, round2_verdict, round3_verdict, recommendation
+    )
+
+    crew = Crew(agents=[agent], tasks=[task], verbose=True)
+    raw_output = _run_crew_with_retry(crew)
+
+    verdict_data = _parse_json_output(raw_output)
+    decision = _parse_decision(verdict_data)
+    confidence = _extract_confidence(verdict_data)
+
+    _write_verdict("committee.txt", raw_output)
+    _write_verdict("committee.json", json.dumps(verdict_data, indent=2))
 
     return {
         "decision": decision,
-        "rationale": decision_text,
+        "verdict": verdict_data,
+        "verdict_text": raw_output,
+        "confidence": confidence,
     }

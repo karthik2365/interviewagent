@@ -1,6 +1,6 @@
-# Multi-Round AI Interview Agent System
+# Evalia — Multi-Agent Interview Evaluation System
 
-A multi-stage interview pipeline powered by **4 specialized CrewAI agents** that simulate a real hiring process. Each round produces a structured verdict, and a final Hiring Committee agent synthesizes all feedback to make a HIRE / HOLD / REJECT decision.
+Evalia is an enterprise-grade candidate evaluation pipeline powered by **5 specialized CrewAI agents** using **Google Gemini AI**. Each stage produces a structured, Pydantic-validated verdict, culminating in an independent Hiring Committee decision isolated from raw resume bias.
 
 ---
 
@@ -10,160 +10,139 @@ A multi-stage interview pipeline powered by **4 specialized CrewAI agents** that
 
 | Type | Storage | Purpose | Mutability |
 |------|---------|---------|------------|
-| **Session Context** | In-memory (`state.py`) | Current interview progress | Mutable, session-scoped |
-| **Decision Memory** | Flat files (`verdicts/*.txt`) | Agent verdicts per round | Immutable audit trail |
-| **Agent Context** | Explicit passing (`crew_runner.py`) | Scoped input to each agent | Read-only, deterministic |
+| **Session Context** | In-memory (`state.py`) | Current interview session state | Mutable, session-scoped |
+| **Decision Memory** | SQLite (`database.py`) + JSON files (`verdicts/`) | Persistent agent verdicts & evaluation logs | Immutable audit trail |
+| **Agent Context** | Explicit passing (`crew_runner.py`) | Scoped context passed to each agent | Read-only, deterministic |
 
-### Interview Flow
+### Pipeline Flow
 
 ```
-Resume Upload → Round 1 (Screening) → Round 2 (Technical) → Round 3 (Scenario) → Final Decision
+Resume Upload → Round 1 (Screening) → Round 2 (Technical) → Round 3 (Behavioral) → Round 4 (Recommendation) → Committee Decision
                     ↓ FAIL: REJECT        ↓ FAIL: REJECT        ↓ FAIL: REJECT
 ```
 
-### Context Flow (Who Sees What)
+### Context Flow (Bias Isolation)
 
-| Agent | Resume | Round 1 | Round 2 | Round 3 |
-|-------|--------|---------|---------|---------|
-| Screening | ✅ | — | — | — |
-| Technical | ✅ | ✅ | — | — |
-| Scenario | ✅ | ✅ | ✅ | — |
-| Hiring Committee | ❌ | ✅ | ✅ | ✅ |
+| Agent | Resume | Round 1 | Round 2 | Round 3 | Round 4 |
+|-------|--------|---------|---------|---------|---------|
+| Screening Agent | YES | — | — | — | — |
+| Technical Agent | YES | YES | — | — | — |
+| Behavioral Agent | YES | YES | YES | — | — |
+| Recommendation Agent | NO | YES | YES | YES | — |
+| Committee Evaluator | NO | YES | YES | YES | YES |
 
-> Agents don't remember arbitrarily. They reason only over explicit evidence passed to them.
+> **Bias Isolation**: The Committee Evaluator receives ONLY peer agent verdicts — raw resumes and candidate details are explicitly excluded to ensure decisions judge demonstrated interview evidence alone.
 
 ---
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14 (App Router) + Tailwind CSS
-- **Backend**: FastAPI (Python)
-- **Agents**: CrewAI
-- **Communication**: REST API (JSON)
-- **Persistence**: Flat files + in-memory state
-- **No database required**
+- **Frontend**: Next.js 14 (App Router) + Tailwind CSS + Framer Motion
+- **Backend**: FastAPI (Python 3.11+) + Pydantic v2
+- **Agent Framework**: CrewAI
+- **LLM Engine**: Google Gemini 2.5 Flash
+- **Persistence**: SQLite (`database.py`) + structured JSON verdict logs (`verdicts/`)
 
 ---
 
 ## Project Structure
 
 ```
-project-root/
+interviewagent/
 ├── backend/
-│   ├── main.py              # FastAPI entry point
-│   ├── routes.py            # API endpoints
-│   ├── state.py             # In-memory session context
-│   ├── agents.py            # 4 CrewAI agent definitions
-│   ├── tasks.py             # CrewAI task definitions
-│   ├── crew_runner.py       # Orchestration + context passing
-│   ├── verdicts/            # Decision memory (generated at runtime)
+│   ├── main.py              # FastAPI entry point & CORS configuration
+│   ├── routes.py            # RESTful API endpoints for pipeline & dashboards
+│   ├── database.py          # SQLite persistence & query layer
+│   ├── models.py            # Pydantic schemas for structured JSON output
+│   ├── agents.py            # 5 CrewAI agent definitions
+│   ├── tasks.py             # Task prompts enforcing JSON output schemas
+│   ├── crew_runner.py       # Multi-agent orchestrator & rate-limit retries
+│   ├── state.py             # Session state & 5-stage pipeline definitions
+│   ├── verdicts/            # Runtime decision memory (JSON & text)
 │   └── requirements.txt
 ├── frontend/
 │   ├── app/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx              # Resume upload
-│   │   ├── round/[id]/page.tsx   # Interview rounds
-│   │   └── result/page.tsx       # Final decision
+│   │   ├── layout.tsx       # Root layout & SEO metadata
+│   │   ├── page.tsx         # Sleek 12-section overview page
+│   │   ├── interview/       # Candidate setup & resume submission
+│   │   ├── round/[id]/      # Technical & behavioral interview rounds
+│   │   ├── result/          # Structured evaluation report
+│   │   └── dashboard/       # Recruiter dashboard & evaluation detail views
 │   ├── package.json
-│   ├── next.config.js
+│   ├── next.config.js       # API proxy configuration to FastAPI
 │   └── tailwind.config.js
 └── README.md
 ```
 
 ---
 
-## Setup & Run
+## Setup & Run Instructions
 
 ### Prerequisites
 
-- Python 3.11+
-- Node.js 18+
-- A Google Gemini API key (used by CrewAI agents)
+- **Python 3.11+**
+- **Node.js 18+**
+- A **Google Gemini API Key** (configured in `backend/.env`)
 
-### 1. Backend
+---
+
+### 1. Start Backend (FastAPI)
 
 ```bash
 cd backend
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate   # macOS/Linux
+# Create virtual environment (optional but recommended)
+python3 -m venv venv
+source venv/bin/activate
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# The Gemini API key is already configured in backend/.env
-# If needed, you can update it in backend/.env or export it:
-# export GEMINI_API_KEY="your-key-here"
-
-# Start the server
+# Start the FastAPI server (runs on port 8000)
 uvicorn main:app --reload --port 8000
 ```
 
-### 2. Frontend
+---
+
+### 2. Start Frontend (Next.js)
 
 ```bash
 cd frontend
 
-# Install dependencies
+# Install Node dependencies
 npm install
 
-# Start dev server
+# Start Next.js development server (runs on port 3000)
 npm run dev
 ```
 
-### 3. Open
+---
 
-Navigate to **http://localhost:3000** in your browser.
+### 3. Open in Browser
+
+Navigate to **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+> Note: The Next.js dev server automatically proxies `/api/*` requests to the FastAPI backend running at `http://127.0.0.1:8000`.
 
 ---
 
-## API Endpoints
+## REST API Endpoints
 
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| `POST` | `/start` | Upload resume, run screening |
-| `POST` | `/round/2/answer` | Submit technical round answer |
-| `POST` | `/round/3/answer` | Submit scenario round answer |
-| `GET` | `/final-decision` | Get hiring committee decision |
-| `GET` | `/status` | Check interview progress |
-
----
-
-## Design Decisions
-
-### Why in-memory session state?
-Fast access during active interview. Would be Redis in production, but in-memory is correct for this scope.
-
-### Why plain text verdict files?
-Immutable audit trail. Human-readable AND agent-readable. Mirrors real hiring feedback systems. Version-controllable.
-
-### Why explicit context passing?
-No hidden state. No hallucinated memory. Full explainability. Each agent sees only what it should — deterministic reasoning.
-
-### Why does the Hiring Committee NOT see the resume?
-Just like real hiring committees — they judge on peer verdicts, not raw data. This prevents bias and ensures the committee evaluates the interview process itself.
-
----
-
-## Verdict File Format
-
-```
-ROUND [N] — [ROUND NAME]
-
-Decision: [PASS|BORDERLINE|FAIL]
-Score: [X] / 10
-
-Strengths: [...]
-Weaknesses: [...]
-
-Reasoning: [Detailed explanation]
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/start` | Reset session, create evaluation, run Screening Agent |
+| `POST` | `/round/2/answer` | Submit technical answer, run Technical Agent |
+| `POST` | `/round/3/answer` | Submit behavioral answer, run Behavioral Agent |
+| `GET` | `/final-decision` | Run Recommendation Agent & Committee Evaluator |
+| `GET` | `/evaluations` | List all evaluations with filtering & pagination |
+| `GET` | `/evaluations/{id}` | Get evaluation detail with all agent verdicts |
+| `GET` | `/evaluations/{id}/report` | Get full structured evaluation report |
+| `GET` | `/dashboard/stats` | Get aggregated stats (total, hired, hire rate, avg score) |
+| `GET` | `/roles` | List available target engineering roles |
+| `GET` | `/status` | Check current session status |
 
 ---
 
 ## License
 
 MIT
-
-#38FBC0
