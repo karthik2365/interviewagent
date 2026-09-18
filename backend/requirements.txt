@@ -5,3 +5,4 @@ crewai-tools
 python-multipart==0.0.9
 pydantic==2.9.2
 python-dotenv
+psycopg2-binary>=2.9.9

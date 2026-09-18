@@ -32,3 +32,4 @@ backend/verdicts/*.json
 .next
 node_modules
 /.DS_Store
+.neon

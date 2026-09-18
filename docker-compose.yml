@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────────
+# Optional: Local PostgreSQL for development
+# Usage:  docker compose up -d
+# ─────────────────────────────────────────────────────────────
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: evalia-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: evalia
+      POSTGRES_PASSWORD: evalia
+      POSTGRES_DB: evalia
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
