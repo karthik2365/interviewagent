@@ -33,3 +33,6 @@ backend/verdicts/*.json
 node_modules
 /.DS_Store
 .neon
+
+# Personal files
+resume.tex
